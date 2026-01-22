@@ -88,9 +88,9 @@ cd apps/web
 npm install
 ```
 
-### 4. Setup HarperDB Schema via Studio
+### 4. Setup HarperDB Schema
 
-**Recommended: Use HarperDB Studio** (easier and visual):
+**Recommended: Use HarperDB Studio** (visual, easier to manage):
 
 1. Start HarperDB:
 ```bash
@@ -101,10 +101,13 @@ docker-compose up harperdb -d
    - Login with credentials (default: HDB_ADMIN / password)
    - Create schema: `pylomarket`
    - Create tables: `users`, `wallets`, `balances`, `markets`, `orders`, `trades`, `transactions`
-   - See `HARPERDB_SETUP.md` for detailed table structure
+   - See `HARPERDB_SETUP.md` for detailed table structure and attributes
 
-**Alternative: Bootstrap Script** (if you prefer):
+**Note**: Custom functions in `custom_functions/` folder are automatically deployed when HarperDB starts.
+
+**Alternative: Bootstrap Script** (if you prefer command-line):
 ```bash
+# After starting HarperDB
 node scripts/bootstrap.js
 ```
 
@@ -152,11 +155,10 @@ pylomarket/
 │   ├── markets.js        # Market operations
 │   ├── orderbook.js      # Order book matching
 │   └── solana_poll.js    # Solana deposit polling
-├── harperdb/             # Legacy (can be removed)
-│   ├── functions/        # Old location
-│   └── schema/           # Schema definitions
+├── harperdb/             # Optional: Schema reference
+│   └── schema/           # Schema definitions (reference only)
 ├── scripts/
-│   └── bootstrap.js      # Database bootstrap script (optional)
+│   └── bootstrap.js      # Database bootstrap script (optional, use Studio instead)
 ├── docker-compose.yml    # Docker configuration
 └── HARPERDB_SETUP.md     # Detailed HarperDB setup guide
 ```
@@ -192,8 +194,8 @@ All API routes call HarperDB custom functions automatically.
 
 ### Wallet
 - `GET /api/wallet/balance` - Get user balance (calls `custom_functions/wallet.js`)
-- `POST /api/wallet/deposit` - Record deposit
-- `GET /api/wallet/solana/address` - Get Solana deposit address
+- `POST /api/wallet/deposit` - Record deposit (uses direct HarperDB access)
+- `GET /api/wallet/solana/address` - Get Solana deposit address (uses direct HarperDB access)
 - `POST /api/wallet/solana/poll` - Poll for Solana deposits (calls `custom_functions/solana_poll.js`)
 
 ### Custom Functions (Direct Access)
@@ -206,24 +208,27 @@ You can also call custom functions directly:
 
 ### Running in Development Mode
 
-1. Start HarperDB (includes custom functions auto-deployment):
+1. **Start HarperDB** (custom functions auto-deploy from `custom_functions/` folder):
 ```bash
 docker-compose up harperdb -d
 ```
 
-2. Setup schema via HarperDB Studio:
+2. **Setup schema via HarperDB Studio** (one-time setup):
    - Access http://localhost:9926
-   - Create schema and tables (see `HARPERDB_SETUP.md`)
+   - Login (default: HDB_ADMIN / password)
+   - Create schema `pylomarket` and all tables
+   - See `HARPERDB_SETUP.md` for detailed instructions
 
-3. Run Next.js dev server:
+3. **Run Next.js dev server**:
 ```bash
 cd apps/web
 npm run dev
 ```
 
-4. Custom functions are auto-synced:
+4. **Custom functions hot reload**:
    - Edit files in `custom_functions/` folder
-   - Changes are automatically deployed (hot reload in dev)
+   - Changes are automatically deployed (hot reload in dev mode)
+   - No need to restart HarperDB container
 
 ### Building for Production
 
