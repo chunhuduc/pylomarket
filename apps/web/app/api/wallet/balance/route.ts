@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchByValue, insert, update } from "@/lib/harperdb";
+import { walletFunctions } from "@/lib/harperdb-functions";
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,32 +9,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const result = await searchByValue("balances", "user_id", userId, [
-      "id",
-      "user_id",
-      "balance",
-      "currency",
-      "updated_at",
-    ]);
+    // Call HarperDB custom function
+    const result = await walletFunctions.getBalance(userId);
 
-    if (!result.data || result.data.length === 0) {
-      // Create default balance
-      const balanceId = `balance_${userId}`;
-      const balance = {
-        id: balanceId,
-        user_id: userId,
-        balance: 0,
-        currency: "USD",
-        updated_at: new Date().toISOString(),
-      };
-      await insert("balances", [balance]);
-      return NextResponse.json({ success: true, balance });
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error || "Failed to get balance" },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({
-      success: true,
-      balance: result.data[0],
-    });
+    return NextResponse.json(result.data);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to get balance" },

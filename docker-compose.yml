@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  harperdb:
+    image: harperdb/harperdb:latest
+    container_name: pylomarket-harperdb
+    ports:
+      - "9925:9925" # HarperDB API port
+      - "9926:9926" # HarperDB Studio port
+      - "3000:3000" # Next.js app port (if integrated)
+    environment:
+      - HDB_ADMIN_USERNAME=${HARPERDB_USERNAME:-HDB_ADMIN}
+      - HDB_ADMIN_PASSWORD=${HARPERDB_PASSWORD:-password}
+      - HDB_HOSTNAME=0.0.0.0
+      - NODE_ENV=${NODE_ENV:-development}
+    volumes:
+      - harperdb_data:/opt/harperdb/hdb
+      - ./custom_functions:/opt/harperdb/custom_functions  # Mount custom functions
+      - ./apps/web:/opt/harperdb/app  # Mount Next.js app (if using integrated setup)
+    networks:
+      - pylomarket-network
+    restart: unless-stopped
+    # If HarperDB has builtin Next.js support, the app will be served from here
+    # Otherwise, we can still use separate web service
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: pylomarket-web
+    ports:
+      - "3001:3000"  # Use different port if HarperDB serves on 3000
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_HARPERDB_URL=http://harperdb:9925
+      - HARPERDB_USERNAME=${HARPERDB_USERNAME:-HDB_ADMIN}
+      - HARPERDB_PASSWORD=${HARPERDB_PASSWORD:-password}
+    depends_on:
+      - harperdb
+    networks:
+      - pylomarket-network
+    restart: unless-stopped
+    # This service is optional if HarperDB has builtin Next.js app
+    # Comment out if using HarperDB's integrated Next.js
+
+volumes:
+  harperdb_data:
+
+networks:
+  pylomarket-network:
+    driver: bridge

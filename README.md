@@ -19,24 +19,31 @@ A prediction markets platform clone of Polymarket, built with Next.js, HarperDB,
 
 ## Architecture
 
+**HarperDB Builtin Next.js App Architecture:**
+
 ```
-┌─────────────┐
-│  Next.js    │
-│    App      │
-└──────┬──────┘
-       │ HTTP/REST
-       ▼
-┌─────────────┐
-│  HarperDB    │
-│ Custom Funcs │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  HarperDB    │
-│  Database   │
-└─────────────┘
+┌─────────────────────────────┐
+│  HarperDB Builtin Node      │
+│  ┌──────────┐  ┌──────────┐ │
+│  │ Next.js │  │ Custom   │ │
+│  │   App   │  │Functions │ │
+│  └────┬────┘  └────┬─────┘ │
+│       │            │        │
+│       └─────┬──────┘        │
+│             ▼               │
+│       ┌──────────┐          │
+│       │ HarperDB │          │
+│       │ Database │          │
+│       └──────────┘          │
+└─────────────────────────────┘
 ```
+
+**Benefits:**
+- **Auto-deployment**: Custom functions auto-sync from `custom_functions/` folder
+- **Hot reload**: Changes reflect immediately in development
+- **Integrated**: Everything in one container
+- **Studio UI**: Visual schema management via HarperDB Studio
+- **Simplified**: No need for separate API service
 
 ## Prerequisites
 
@@ -81,21 +88,25 @@ cd apps/web
 npm install
 ```
 
-### 4. Bootstrap HarperDB schema
+### 4. Setup HarperDB Schema via Studio
 
-Before starting the services, you need to create the database schema. You can do this by:
+**Recommended: Use HarperDB Studio** (easier and visual):
 
-1. Starting HarperDB first:
+1. Start HarperDB:
 ```bash
 docker-compose up harperdb -d
 ```
 
-2. Wait for HarperDB to be ready, then run the bootstrap script:
+2. Access HarperDB Studio: http://localhost:9926
+   - Login with credentials (default: HDB_ADMIN / password)
+   - Create schema: `pylomarket`
+   - Create tables: `users`, `wallets`, `balances`, `markets`, `orders`, `trades`, `transactions`
+   - See `HARPERDB_SETUP.md` for detailed table structure
+
+**Alternative: Bootstrap Script** (if you prefer):
 ```bash
 node scripts/bootstrap.js
 ```
-
-Or use the HarperDB Studio (available at http://localhost:9926) to create the schema manually.
 
 ### 5. Start the application
 
@@ -127,18 +138,27 @@ pylomarket/
 ├── apps/
 │   └── web/                 # Next.js application
 │       ├── app/            # App router pages
-│       │   ├── api/       # API routes
+│       │   ├── api/       # API routes (call custom functions)
 │       │   ├── auth/      # Authentication pages
 │       │   ├── markets/   # Market pages
 │       │   └── wallet/    # Wallet page
 │       ├── components/    # React components
 │       └── lib/           # Utility functions
-├── harperdb/
-│   ├── functions/         # HarperDB custom functions
+│           ├── harperdb.ts          # HarperDB REST client
+│           └── harperdb-functions.ts # Custom function helpers
+├── custom_functions/      # HarperDB custom functions (auto-deployed)
+│   ├── auth.js           # Authentication
+│   ├── wallet.js         # Wallet management
+│   ├── markets.js        # Market operations
+│   ├── orderbook.js      # Order book matching
+│   └── solana_poll.js    # Solana deposit polling
+├── harperdb/             # Legacy (can be removed)
+│   ├── functions/        # Old location
 │   └── schema/           # Schema definitions
 ├── scripts/
-│   └── bootstrap.js      # Database bootstrap script
-└── docker-compose.yml    # Docker configuration
+│   └── bootstrap.js      # Database bootstrap script (optional)
+├── docker-compose.yml    # Docker configuration
+└── HARPERDB_SETUP.md     # Detailed HarperDB setup guide
 ```
 
 ## Database Schema
@@ -155,39 +175,55 @@ The application uses the following tables in the `pylomarket` schema:
 
 ## API Endpoints
 
+All API routes call HarperDB custom functions automatically.
+
 ### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login user
+- `POST /api/auth/register` - Register new user (calls `custom_functions/auth.js`)
+- `POST /api/auth/login` - Login user (calls `custom_functions/auth.js`)
 
 ### Markets
-- `GET /api/markets` - List markets
-- `POST /api/markets` - Create market
-- `GET /api/markets/[id]` - Get market details
+- `GET /api/markets` - List markets (calls `custom_functions/markets.js`)
+- `POST /api/markets` - Create market (calls `custom_functions/markets.js`)
+- `GET /api/markets/[id]` - Get market details (calls `custom_functions/markets.js`)
 
 ### Orders
-- `POST /api/orders` - Place order
-- `GET /api/orders` - Get user orders
+- `POST /api/orders` - Place order (calls `custom_functions/orderbook.js`)
+- `GET /api/orders` - Get user orders (calls `custom_functions/orderbook.js`)
 
 ### Wallet
-- `GET /api/wallet/balance` - Get user balance
+- `GET /api/wallet/balance` - Get user balance (calls `custom_functions/wallet.js`)
 - `POST /api/wallet/deposit` - Record deposit
 - `GET /api/wallet/solana/address` - Get Solana deposit address
-- `POST /api/wallet/solana/poll` - Poll for Solana deposits
+- `POST /api/wallet/solana/poll` - Poll for Solana deposits (calls `custom_functions/solana_poll.js`)
+
+### Custom Functions (Direct Access)
+
+You can also call custom functions directly:
+- `POST http://localhost:9925/custom_function/{function_name}`
+- See `HARPERDB_SETUP.md` for details
 
 ## Development
 
 ### Running in Development Mode
 
-1. Start HarperDB:
+1. Start HarperDB (includes custom functions auto-deployment):
 ```bash
 docker-compose up harperdb -d
 ```
 
-2. Run Next.js dev server:
+2. Setup schema via HarperDB Studio:
+   - Access http://localhost:9926
+   - Create schema and tables (see `HARPERDB_SETUP.md`)
+
+3. Run Next.js dev server:
 ```bash
 cd apps/web
 npm run dev
 ```
+
+4. Custom functions are auto-synced:
+   - Edit files in `custom_functions/` folder
+   - Changes are automatically deployed (hot reload in dev)
 
 ### Building for Production
 
@@ -241,11 +277,19 @@ Make sure to set proper environment variables:
 - Production Solana RPC URL (if using mainnet)
 - Update `NEXT_PUBLIC_HARPERDB_URL` for production
 
+## HarperDB Builtin Features Used
+
+✅ **Custom Functions Auto-Deployment**: Functions in `custom_functions/` are automatically deployed
+✅ **Hot Reload**: Changes to custom functions reflect immediately in dev mode
+✅ **Schema Management**: Visual schema management via HarperDB Studio
+✅ **Integrated API**: Custom functions accessible via HTTP endpoints
+✅ **Scheduled Jobs**: Can set up scheduled jobs for Solana polling (see `HARPERDB_SETUP.md`)
+
 ## Known Limitations (MVP)
 
 - Simplified order matching (not production-ready)
 - Fixed SOL/USD conversion rate (100 USD per SOL)
-- Manual deposit polling (not automated)
+- Manual deposit polling (can be automated via scheduled jobs)
 - Basic authentication (no 2FA, password reset, etc.)
 - No market resolution automation
 - No position tracking/settlement
