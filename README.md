@@ -268,19 +268,53 @@ Basic API tests can be added in the `tests/` directory. For now, you can test th
 
 ## Deployment
 
-### Docker Deployment
+### Automated CI/CD Deployment
+
+The project includes GitHub Actions workflow for automated deployment to VPS (DigitalOcean, AWS, etc.):
+
+**Quick Setup:**
+
+1. **Setup GitHub Secrets** (one-time):
+   - Go to repository Settings → Secrets and variables → Actions
+   - Add: `VPS_SSH_PRIVATE_KEY`, `VPS_HOST`, `VPS_USER`, `VPS_DEPLOY_PATH`
+   - See `.github/SECRETS_SETUP.md` for detailed instructions
+
+2. **Initial VPS Setup**:
+   - Install Docker & Docker Compose
+   - Setup SSH key authentication
+   - Clone repository to VPS
+   - Create `.env.production` file (copy from `.env.production.example`)
+   - See `DEPLOYMENT.md` for complete guide
+
+3. **Automatic Deployment**:
+   - Every push to `main` branch → automatic deployment
+   - GitHub Actions builds Docker images
+   - SSH to VPS and runs `docker-compose.prod.yml`
+   - Health checks ensure successful deployment
+
+**Workflow:**
+```
+Push to main → GitHub Actions → Build → SSH to VPS → Deploy → Health Check
+```
+
+### Manual Deployment
 
 ```bash
-docker-compose up -d
+# On VPS
+cd /opt/pylomarket
+git pull origin main
+docker-compose -f docker-compose.prod.yml up -d --build
 ```
 
 ### Environment Variables for Production
 
-Make sure to set proper environment variables:
+Create `.env.production` on VPS with:
 - Strong `HARPERDB_PASSWORD`
 - Strong `JWT_SECRET`
 - Production Solana RPC URL (if using mainnet)
 - Update `NEXT_PUBLIC_HARPERDB_URL` for production
+
+See `.env.production.example` for template.
 
 ## HarperDB Builtin Features Used
 

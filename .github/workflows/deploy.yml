@@ -1,0 +1,104 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Add VPS to known hosts
+        run: |
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+        run: |
+          ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST << 'EOF'
+            set -e
+            
+            # Navigate to deployment directory
+            cd $VPS_DEPLOY_PATH || exit 1
+            
+            # Pull latest code
+            echo "📥 Pulling latest code..."
+            git fetch origin main
+            git reset --hard origin/main
+            
+            # Check if .env.production exists
+            if [ ! -f .env.production ]; then
+              echo "⚠️  Warning: .env.production not found. Please create it manually."
+              exit 1
+            fi
+            
+            # Load environment variables
+            export $(cat .env.production | grep -v '^#' | xargs)
+            
+            # Stop existing containers
+            echo "🛑 Stopping existing containers..."
+            docker-compose -f docker-compose.prod.yml down || true
+            
+            # Build and start containers
+            echo "🔨 Building and starting containers..."
+            docker-compose -f docker-compose.prod.yml build --no-cache
+            docker-compose -f docker-compose.prod.yml up -d
+            
+            # Wait for services to be healthy
+            echo "⏳ Waiting for services to be ready..."
+            sleep 15
+            
+            # Health check
+            echo "🏥 Performing health check..."
+            MAX_RETRIES=5
+            RETRY_COUNT=0
+            HEALTH_CHECK_PASSED=false
+            
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              if curl -f http://localhost:3000/api/health > /dev/null 2>&1; then
+                echo "✅ Health check passed!"
+                HEALTH_CHECK_PASSED=true
+                break
+              fi
+              
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "⏳ Health check failed, retrying... ($RETRY_COUNT/$MAX_RETRIES)"
+                sleep 5
+              fi
+            done
+            
+            if [ "$HEALTH_CHECK_PASSED" = false ]; then
+              echo "❌ Health check failed after $MAX_RETRIES attempts"
+              echo "📋 Container status:"
+              docker-compose -f docker-compose.prod.yml ps
+              echo "📋 Container logs:"
+              docker-compose -f docker-compose.prod.yml logs --tail=50
+              exit 1
+            fi
+            
+            # Clean up old images
+            echo "🧹 Cleaning up old Docker images..."
+            docker image prune -f
+            
+            echo "✅ Deployment completed successfully!"
+          EOF
+
+      - name: Deployment Summary
+        run: |
+          echo "✅ Deployment to VPS completed successfully!"
+          echo "Application should be available at: http://${{ secrets.VPS_HOST }}:3000"

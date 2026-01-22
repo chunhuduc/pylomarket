@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  harperdb:
+    image: harperdb/harperdb:latest
+    container_name: pylomarket-harperdb-prod
+    ports:
+      - "9925:9925" # HarperDB API port
+      - "9926:9926" # HarperDB Studio port
+    environment:
+      - HDB_ADMIN_USERNAME=${HARPERDB_USERNAME}
+      - HDB_ADMIN_PASSWORD=${HARPERDB_PASSWORD}
+      - HDB_HOSTNAME=0.0.0.0
+      - NODE_ENV=production
+    volumes:
+      - harperdb_data:/opt/harperdb/hdb
+      - ./custom_functions:/opt/harperdb/custom_functions
+    networks:
+      - pylomarket-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9925"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: pylomarket-web-prod
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_HARPERDB_URL=http://harperdb:9925
+      - HARPERDB_USERNAME=${HARPERDB_USERNAME}
+      - HARPERDB_PASSWORD=${HARPERDB_PASSWORD}
+      - HARPERDB_URL=http://harperdb:9925
+      - JWT_SECRET=${JWT_SECRET}
+      - SOLANA_RPC_URL=${SOLANA_RPC_URL:-https://api.devnet.solana.com}
+      - NEXT_PUBLIC_SOLANA_NETWORK=${NEXT_PUBLIC_SOLANA_NETWORK:-devnet}
+    depends_on:
+      harperdb:
+        condition: service_healthy
+    networks:
+      - pylomarket-network
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health 2>/dev/null || exit 0"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  harperdb_data:
+    driver: local
+
+networks:
+  pylomarket-network:
+    driver: bridge
