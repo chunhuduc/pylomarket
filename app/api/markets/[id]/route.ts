@@ -3,10 +3,10 @@ import { marketFunctions } from "@/lib/harperdb-functions";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const marketId = params.id;
+    const { id: marketId } = await params;
 
     // Call HarperDB custom function
     const result = await marketFunctions.getMarket(marketId);

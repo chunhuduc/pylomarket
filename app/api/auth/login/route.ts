@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authFunctions } from "../../lib/harperdb-functions";
+import { authFunctions } from "@/lib/harperdb-functions";
 
 export async function POST(request: NextRequest) {
   try {

@@ -6,12 +6,12 @@ FROM node:20-alpine AS nextjs-builder
 WORKDIR /app
 
 # Copy package files
-COPY app/package.json app/package-lock.json* ./
+COPY package.json package-lock.json* ./
 RUN npm ci
 
-# Copy Next.js app source
-COPY app ./
-COPY tsconfig.json ./
+# Copy Next.js app source (app directory)
+COPY app ./app
+COPY tsconfig.json next.config.ts ./
 
 # Build Next.js app
 RUN npm run build

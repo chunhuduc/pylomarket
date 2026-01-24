@@ -6,16 +6,16 @@ type User @table {
   email: String @indexed
   username: String
   password_hash: String
-  created_at: DateTime
-  updated_at: DateTime
+  created_at: String
+  updated_at: String
 }
 
 type Wallet @table {
   id: String @primaryKey
   user_id: String @indexed
   solana_address: String
-  created_at: DateTime
-  updated_at: DateTime
+  created_at: String
+  updated_at: String
 }
 
 type Balance @table {
@@ -23,7 +23,7 @@ type Balance @table {
   user_id: String @indexed
   balance: Float
   currency: String
-  updated_at: DateTime
+  updated_at: String
 }
 
 type Market @table {
@@ -31,11 +31,11 @@ type Market @table {
   title: String
   description: String
   category: String
-  end_date: DateTime
+  end_date: String
   resolved: Boolean
   resolution: String
-  created_at: DateTime
-  updated_at: DateTime
+  created_at: String
+  updated_at: String
 }
 
 type Order @table {
@@ -48,8 +48,8 @@ type Order @table {
   quantity: Float
   filled_quantity: Float
   status: String
-  created_at: DateTime
-  updated_at: DateTime
+  created_at: String
+  updated_at: String
 }
 
 type Trade @table {
@@ -62,7 +62,7 @@ type Trade @table {
   outcome: String
   price: Float
   quantity: Float
-  created_at: DateTime
+  created_at: String
 }
 
 type Transaction @table {
@@ -74,5 +74,5 @@ type Transaction @table {
   status: String
   solana_signature: String
   metadata: String
-  created_at: DateTime
+  created_at: String
 }

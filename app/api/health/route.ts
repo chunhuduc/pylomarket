@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { testHarperDBConnection, getHarperDBConnectionInfo } from "../../lib/harperdb-connection";
+import { testHarperDBConnection, getHarperDBConnectionInfo } from "@/lib/harperdb-connection";
 
 /**
  * Enhanced health check endpoint

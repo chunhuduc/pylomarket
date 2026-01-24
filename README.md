@@ -13,51 +13,53 @@ A prediction markets platform clone of Polymarket, built with Next.js, HarperDB,
 ## Tech Stack
 
 - **Frontend**: Next.js 16 (App Router), TypeScript, Tailwind CSS
-- **Database**: HarperDB (with Applications/Resources support)
+- **Database**: HarperDB 4.7 with [@harperdb/nextjs](https://github.com/HarperFast/nextjs) integration
 - **Blockchain**: Solana (Devnet)
 - **Deployment**: Docker Compose
 
 ## Architecture
 
-**HarperDB 4.7 Applications Architecture:**
+**Integrated HarperDB + Next.js:**
 
 ```
-┌─────────────────────────────┐
-│  Next.js App (localhost:3000)│
-│  ┌─────────────────────────┐ │
-│  │  API Routes (Proxy)     │ │
-│  └───────────┬──────────────┘ │
-└──────────────┼───────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│  HarperDB Container         │
-│  ┌─────────────────────────┐ │
-│  │  Application Resources  │ │
-│  │  (AuthResource, etc.)   │ │
-│  └───────────┬──────────────┘ │
-│              │                │
-│              ▼                │
-│       ┌──────────┐           │
-│       │ HarperDB │           │
-│       │ Database │           │
-│       └──────────┘           │
-└─────────────────────────────┘
+┌─────────────────────────────────────┐
+│  HarperDB Container (Port 9926)     │
+│  ┌─────────────────────────────────┐│
+│  │  Next.js App (@harperdb/nextjs) ││
+│  │  - Server-side rendering        ││
+│  │  - API Routes                   ││
+│  └────────────┬────────────────────┘│
+│               │                      │
+│               ▼                      │
+│  ┌─────────────────────────────────┐│
+│  │  HarperDB Application Resources ││
+│  │  - AuthResource                 ││
+│  │  - WalletResource               ││
+│  │  - MarketResource, etc.         ││
+│  └────────────┬────────────────────┘│
+│               │                      │
+│               ▼                      │
+│       ┌──────────────┐              │
+│       │   HarperDB   │              │
+│       │   Database   │              │
+│       └──────────────┘              │
+└─────────────────────────────────────┘
 ```
 
 **Benefits:**
-- **HarperDB 4.7 Applications**: Uses modern Resource-based architecture (custom_functions deprecated)
-- **Auto-detection**: HarperDB auto-detects file changes and auto-restarts
+- **[@harperdb/nextjs](https://github.com/HarperFast/nextjs)**: Tight integration of Next.js with HarperDB
+- **Single Container**: Next.js app runs inside HarperDB container
+- **Direct Access**: Server-side code can directly access HarperDB tables via `tables` global
+- **Auto-detection**: HarperDB auto-detects file changes and restarts
 - **Schema-first**: Tables defined via GraphQL schema
 - **RESTful endpoints**: Resources automatically generate REST endpoints
-- **Studio UI**: Visual schema management via HarperDB Studio
-- **Built-in integration**: Next.js can run separately or be built-in with HarperDB container
 
 ## Prerequisites
 
 - Node.js 20+
-- Docker and Docker Compose
-- npm or yarn
+- npm
+- HarperDB CLI (included in dependencies)
+- Docker and Docker Compose (optional, for containerized deployment)
 
 ## Getting Started
 
@@ -92,14 +94,41 @@ JWT_SECRET=your-secret-key-change-in-production
 ### 3. Install dependencies
 
 ```bash
-# Install root dependencies (HarperDB app dependencies: bcryptjs, jsonwebtoken, @solana/web3.js)
+# Install all dependencies
 npm install
-
-# Note: Next.js app dependencies should be installed separately if app/package.json exists
-# Otherwise, dependencies are managed at root level
 ```
 
-### 4. Setup HarperDB Schema
+### 4. Build Next.js
+
+```bash
+npm run build
+```
+
+### 5. Start the application
+
+**Using HarperDB CLI (Recommended):**
+
+```bash
+# Production mode
+npm start
+
+# Development mode (with hot reload)
+npm run dev
+```
+
+The application will be available at:
+- **Next.js app**: http://localhost:9926
+- **HarperDB Studio**: http://localhost:9925
+
+**Using Docker Compose:**
+
+```bash
+# Integrated container (Production)
+docker-compose up integrated -d
+```
+
+- Next.js app: https://localhost:9926 (HTTPS)
+- HarperDB Studio: http://localhost:9925
 
 **Recommended: Use HarperDB Studio** (visual, easier to manage):
 
@@ -147,25 +176,28 @@ HarperDB automatically detects the application files (`schema.graphql`, `resourc
 
 ### 5. Start the application
 
-**Option A: Integrated Container (Production-like)**
+**Option A: Using HarperDB CLI (Recommended)**
 ```bash
-# Build and run integrated container (HarperDB + Next.js in one)
-docker-compose up integrated -d
-```
-- Access Next.js app: https://localhost:9926 (HTTPS)
-- Access HarperDB Studio: http://localhost:9925
+# Development mode (with hot reload)
+npm run dev
 
-**Option B: Separate Services (Development)**
+# Production mode
+npm start
+```
+- Access Next.js app: http://localhost:9926
+- Access HarperDB Studio: http://localhost:9925
+- HarperDB CLI automatically manages the application
+
+**Option B: Docker Compose**
 ```bash
-# Terminal 1: Start HarperDB
+# Development with separate services
 docker-compose up harperdb -d
 
-# Terminal 2: Run Next.js dev server (auto-connects to HarperDB)
-npm run dev
-# Or if app/package.json exists: cd app && npm run dev
+# Or integrated container (Production-like)
+docker-compose up integrated -d
 ```
-- Access Next.js app: http://localhost:3000
-- Next.js will auto-detect and connect to HarperDB at http://localhost:9925
+- Access Next.js app: https://localhost:9926 (HTTPS) or http://localhost:3000
+- Access HarperDB Studio: http://localhost:9925
 
 The application will be available at:
 - **Integrated Container** (Production):
@@ -258,55 +290,55 @@ You can also call Resources directly:
 
 ### Running in Development Mode
 
-1. **Start HarperDB** (Application auto-detects from root files):
+1. **Install HarperDB CLI** (if not already installed):
 ```bash
-docker-compose up harperdb -d
+npm install -g harperdb
+# Or use local installation (already in package.json)
 ```
 
 2. **Setup schema via HarperDB Studio** (one-time setup):
+   - Start HarperDB: `npm run dev` or `docker-compose up harperdb -d`
    - Access http://localhost:9925
    - Login (default: HDB_ADMIN / password)
    - Create schema `pylomarket` and all tables
 
-3. **Run Next.js app** (choose one):
+3. **Run application** (choose one):
 
-   **Option A: Integrated Container** (Production):
+   **Option A: Using HarperDB CLI** (Recommended):
    ```bash
-   docker-compose up integrated -d
-   ```
-   - Single container with HarperDB + Next.js app
-   - Next.js app is built into the image
-   - Access via: `https://localhost:9926` (HTTPS)
-   - No separate startup script needed - uses HarperDB's native capabilities
-
-   **Option B: Development Mode** (Recommended for dev):
-   ```bash
-   # From root directory
    npm run dev
-   # Or if app/package.json exists:
-   cd app && npm run dev
    ```
-   - Access via: `http://localhost:3000`
+   - HarperDB CLI manages both HarperDB and Next.js app
+   - Access via: `http://localhost:9926`
+   - Hot reload enabled automatically
+
+   **Option B: Docker Compose**:
+   ```bash
+   docker-compose up harperdb -d
+   # Then run Next.js separately if needed
+   ```
 
 4. **Application hot reload**:
    - Edit files in root: `schema.graphql`, `resources.js`, `config.yaml`
-   - HarperDB auto-detects changes and auto-restarts
-   - No need to manually restart HarperDB container
+   - Edit Next.js files in `app/` directory
+   - HarperDB CLI auto-detects changes and auto-restarts
+   - No need to manually restart
 
 ### Building for Production
 
-**Using Docker (Recommended):**
+**Using HarperDB CLI:**
+```bash
+# Build Next.js app first
+npm run build
+
+# Then start with HarperDB
+npm start
+```
+
+**Or using Docker:**
 ```bash
 # Build and run integrated container
 docker-compose -f docker-compose.prod.yml up -d --build
-```
-
-**Or manually:**
-```bash
-# Build Next.js app (if app/package.json exists)
-cd app
-npm run build
-npm start
 ```
 
 ## Solana Integration
@@ -337,7 +369,24 @@ You can test the API endpoints using:
 
 ### Manual Deployment
 
-**Production Deployment:**
+**Using HarperDB CLI (Recommended):**
+
+1. **Login to HarperDB Fabric:**
+   ```bash
+   npm run login
+   ```
+   - Follow prompts to authenticate with HarperDB Fabric
+   - This creates/updates credentials in your environment
+
+2. **Deploy to HarperDB Fabric:**
+   ```bash
+   npm run deploy
+   ```
+   - Deploys application to your HarperDB cluster
+   - Uses rolling restart for zero-downtime deployment
+   - Replicated across cluster nodes
+
+**Or using Docker:**
 
 1. **On VPS/Server:**
    ```bash
@@ -363,6 +412,7 @@ You can test the API endpoints using:
 **Files:**
 - `docker-compose.prod.yml` - Production Docker Compose config
 - `Dockerfile.integrated` - Integrated Docker image (HarperDB + Next.js)
+- `login.js` - HarperDB Fabric login script
 
 ## HarperDB Builtin Features Used
 

@@ -9,11 +9,13 @@ graphqlSchema:
 jsResource:
   files: './resources.js'
 
-# Next.js Integration - built-in with HarperDB
+# Next.js Integration - https://github.com/HarperFast/nextjs
 '@harperdb/nextjs':
   package: '@harperdb/nextjs'
-  prebuilt: true # Skip building since we already built in Dockerfile
-  files: './app/**'
+  files: '*'
+  dev: false
+  prebuilt: false
+  setCwd: true
 
 # Data Loader - seed data for initial population
 dataLoader:
