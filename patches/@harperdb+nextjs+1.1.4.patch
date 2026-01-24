@@ -1,0 +1,12 @@
+diff --git a/node_modules/@harperdb/nextjs/cli.js b/node_modules/@harperdb/nextjs/cli.js
+index 784161c..9130d0e 100644
+--- a/node_modules/@harperdb/nextjs/cli.js
++++ b/node_modules/@harperdb/nextjs/cli.js
+@@ -9,6 +9,7 @@ async function executeHarperDB(mode) {
+ 	const p = child_process.spawn('harperdb', ['run', './'], {
+ 		cwd,
+ 		stdio: 'inherit',
++		shell: true,
+ 		env: {
+ 			...process.env,
+ 			HARPERDB_NEXTJS_MODE: mode,

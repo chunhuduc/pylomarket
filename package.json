@@ -4,12 +4,13 @@
   "description": "PyloMarket - Prediction Markets Platform with HarperDB and Next.js",
   "private": true,
   "scripts": {
-    "start": "harperdb run .",
-    "dev": "harperdb dev .",
+    "start": "harperdb-nextjs start",
+    "dev": "harperdb-nextjs dev",
+    "build": "harperdb-nextjs build",
     "login": "node login.js",
     "deploy": "npx -y dotenv-cli -- harperdb deploy . restart=rolling replicated=true",
-    "build": "next build",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@harperdb/nextjs": "^1.1.4",
@@ -30,6 +31,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.4",
+    "patch-package": "^8.0.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   },
