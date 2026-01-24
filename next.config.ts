@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
 
   // Empty turbopack config to silence migration warning
   // HarperDB package will be handled by @harperdb/nextjs extension
-  // turbopack: {},
+  turbopack: {},
 };
 
 export default nextConfig;

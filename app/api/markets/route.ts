@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "50");
     const offset = parseInt(searchParams.get("offset") || "0");
 
-    // Call Server Action
+    // Call Server Action (recommended pattern from official example)
     const result = await listMarkets({
       category: category || undefined,
       resolved: resolved ? resolved === "true" : undefined,
@@ -17,30 +17,13 @@ export async function GET(request: NextRequest) {
       offset,
     });
 
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error || "Failed to fetch markets" },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json(result);
   } catch (error) {
-    // Enhanced error logging
-    const errorMessage = error instanceof Error ? error.message : "Failed to fetch markets";
-    
-    if (process.env.NODE_ENV === "development") {
-      console.error("[API /markets] Unexpected error:", error);
-    }
-
+    console.error("[API /markets GET] Error:", error);
     return NextResponse.json(
       {
-        error: errorMessage,
-        ...(process.env.NODE_ENV === "development" && {
-          debug: {
-            stack: error instanceof Error ? error.stack : undefined,
-          },
-        }),
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to fetch markets"
       },
       { status: 500 }
     );
@@ -53,30 +36,27 @@ export async function POST(request: NextRequest) {
 
     if (!title || !description || !endDate) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { success: false, error: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    // Call HarperDB custom function
-    const result = await marketFunctions.createMarket({
+    // Call Server Action (recommended pattern from official example)
+    const result = await createMarket({
       title,
       description,
       category,
       endDate,
     });
 
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error || "Failed to create market" },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json(result);
   } catch (error) {
+    console.error("[API /markets POST] Error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to create market" },
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to create market"
+      },
       { status: 500 }
     );
   }

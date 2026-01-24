@@ -1,16 +1,10 @@
-'use server';
+import { databases } from "harperdb";
+
+const { Market } = databases.pylomarket;
 
 /**
  * Markets Server Actions
- * Replaces MarketResource from resources.js
  */
-
-const SCHEMA = "pylomarket";
-
-// Declare global harperdb type
-declare global {
-  var harperdb: any;
-}
 
 export async function listMarkets(options?: {
   category?: string;
@@ -21,38 +15,37 @@ export async function listMarkets(options?: {
   try {
     const { category, resolved, limit = 50, offset = 0 } = options || {};
     
-    let query = `SELECT * FROM ${SCHEMA}.markets WHERE 1=1`;
-    
-    if (category) {
-      query += ` AND category = '${category}'`;
+    const filter: any = {};
+    if (category) filter.category = category;
+    if (resolved !== undefined) filter.resolved = resolved;
+
+    const marketsArray = [];
+    for await (const market of Market.search(filter)) {
+      marketsArray.push(market);
     }
-    if (resolved !== undefined) {
-      query += ` AND resolved = ${resolved}`;
-    }
     
-    query += ` ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`;
-    
-    const markets = await harperdb.sql(query);
-    return { success: true, markets: markets || [] };
+    const markets = marketsArray
+      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(offset, offset + limit);
+
+    return { success: true, markets };
   } catch (error: any) {
+    console.error('[listMarkets] Error:', error);
     return { success: false, error: error.message };
   }
 }
 
 export async function getMarket(marketId: string) {
   try {
-    const markets = await harperdb.searchByHash(
-      SCHEMA,
-      "markets",
-      [marketId]
-    );
+    const market = await Market.get(marketId);
 
-    if (!markets || markets.length === 0) {
+    if (!market) {
       return { success: false, error: "Market not found" };
     }
 
-    return { success: true, market: markets[0] };
+    return { success: true, market };
   } catch (error: any) {
+    console.error('[getMarket] Error:', error);
     return { success: false, error: error.message };
   }
 }
@@ -66,9 +59,7 @@ export async function createMarket(data: {
   try {
     const { title, description, category, endDate } = data;
     
-    const marketId = `market_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const market = {
-      id: marketId,
+    const market = await Market.create({
       title,
       description,
       category: category || "general",
@@ -77,36 +68,32 @@ export async function createMarket(data: {
       resolution: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    };
+    });
 
-    await harperdb.insert(SCHEMA, "markets", [market]);
     return { success: true, market };
   } catch (error: any) {
+    console.error('[createMarket] Error:', error);
     return { success: false, error: error.message };
   }
 }
 
 export async function resolveMarket(marketId: string, resolution: string) {
   try {
-    const markets = await harperdb.searchByHash(
-      SCHEMA,
-      "markets",
-      [marketId]
-    );
+    const market = await Market.get(marketId);
 
-    if (!markets || markets.length === 0) {
+    if (!market) {
       return { success: false, error: "Market not found" };
     }
 
-    await harperdb.update(SCHEMA, "markets", [{
-      id: marketId,
+    await Market.patch(marketId, {
       resolved: true,
       resolution,
       updated_at: new Date().toISOString(),
-    }]);
+    });
 
     return { success: true, message: "Market resolved" };
   } catch (error: any) {
+    console.error('[resolveMarket] Error:', error);
     return { success: false, error: error.message };
   }
 }
