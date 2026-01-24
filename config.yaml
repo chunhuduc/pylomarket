@@ -1,0 +1,20 @@
+# HarperDB Application Configuration
+# Based on HarperDB application template: https://github.com/HarperFast/application-template
+
+# GraphQL Schema - defines database tables
+graphqlSchema:
+  files: './schema.graphql'
+
+# JavaScript Resources - custom business logic
+jsResource:
+  files: './resources.js'
+
+# Next.js Integration - built-in with HarperDB
+'@harperdb/nextjs':
+  package: '@harperdb/nextjs'
+  prebuilt: true # Skip building since we already built in Dockerfile
+  files: './app/**'
+
+# Data Loader - seed data for initial population
+dataLoader:
+  files: './seed/data.json'

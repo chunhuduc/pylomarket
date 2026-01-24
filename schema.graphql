@@ -1,0 +1,78 @@
+# PyloMarket Schema Definition
+# HarperDB 4.7 Application Schema
+
+type User @table {
+  id: String @primaryKey
+  email: String @indexed
+  username: String
+  password_hash: String
+  created_at: DateTime
+  updated_at: DateTime
+}
+
+type Wallet @table {
+  id: String @primaryKey
+  user_id: String @indexed
+  solana_address: String
+  created_at: DateTime
+  updated_at: DateTime
+}
+
+type Balance @table {
+  id: String @primaryKey
+  user_id: String @indexed
+  balance: Float
+  currency: String
+  updated_at: DateTime
+}
+
+type Market @table {
+  id: String @primaryKey
+  title: String
+  description: String
+  category: String
+  end_date: DateTime
+  resolved: Boolean
+  resolution: String
+  created_at: DateTime
+  updated_at: DateTime
+}
+
+type Order @table {
+  id: String @primaryKey
+  market_id: String @indexed
+  user_id: String @indexed
+  side: String
+  outcome: String
+  price: Float
+  quantity: Float
+  filled_quantity: Float
+  status: String
+  created_at: DateTime
+  updated_at: DateTime
+}
+
+type Trade @table {
+  id: String @primaryKey
+  market_id: String @indexed
+  buy_order_id: String
+  sell_order_id: String
+  buyer_id: String @indexed
+  seller_id: String @indexed
+  outcome: String
+  price: Float
+  quantity: Float
+  created_at: DateTime
+}
+
+type Transaction @table {
+  id: String @primaryKey
+  user_id: String @indexed
+  type: String
+  amount: Float
+  currency: String
+  status: String
+  solana_signature: String
+  metadata: String
+  created_at: DateTime
+}
