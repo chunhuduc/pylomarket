@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { marketFunctions } from "@/lib/harperdb-functions";
+import { listMarkets, createMarket } from "@/actions";
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,8 +9,8 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "50");
     const offset = parseInt(searchParams.get("offset") || "0");
 
-    // Call HarperDB custom function
-    const result = await marketFunctions.listMarkets({
+    // Call Server Action
+    const result = await listMarkets({
       category: category || undefined,
       resolved: resolved ? resolved === "true" : undefined,
       limit,
@@ -18,27 +18,13 @@ export async function GET(request: NextRequest) {
     });
 
     if (!result.success) {
-      // Enhanced error logging in development
-      if (process.env.NODE_ENV === "development") {
-        console.error("[API /markets] HarperDB error:", result.error);
-        console.error("[API /markets] Check HarperDB connection and custom functions");
-      }
-
       return NextResponse.json(
-        {
-          error: result.error || "Failed to fetch markets",
-          ...(process.env.NODE_ENV === "development" && {
-            debug: {
-              message: "Check if HarperDB is running and schema 'pylomarket' exists",
-              harperdbUrl: process.env.HARPERDB_URL || process.env.NEXT_PUBLIC_HARPERDB_URL,
-            },
-          }),
-        },
+        { error: result.error || "Failed to fetch markets" },
         { status: 500 }
       );
     }
 
-    return NextResponse.json(result.data);
+    return NextResponse.json(result);
   } catch (error) {
     // Enhanced error logging
     const errorMessage = error instanceof Error ? error.message : "Failed to fetch markets";
@@ -87,7 +73,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(result.data);
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to create market" },

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authFunctions } from "@/lib/harperdb-functions";
+import { loginUser } from "@/actions";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,32 +12,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call HarperDB custom function
-    const result = await authFunctions.login({ email, password });
+    // Call Server Action
+    const result = await loginUser(email, password);
 
     if (!result.success) {
-      // Enhanced error logging in development
-      if (process.env.NODE_ENV === "development") {
-        console.error("[API /auth/login] HarperDB error:", result.error);
-      }
-
-      // Don't expose detailed errors for security, but log them
-      const isAuthError = result.error?.includes("Invalid") || result.error?.includes("not found");
-      
       return NextResponse.json(
-        {
-          error: isAuthError ? "Invalid credentials" : result.error || "Login failed",
-          ...(process.env.NODE_ENV === "development" && !isAuthError && {
-            debug: {
-              message: "Check if HarperDB custom function 'auth' is available",
-            },
-          }),
-        },
-        { status: isAuthError ? 401 : 500 }
+        { error: result.error || "Login failed" },
+        { status: 401 }
       );
     }
 
-    return NextResponse.json(result.data);
+    return NextResponse.json(result);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Login failed";
     

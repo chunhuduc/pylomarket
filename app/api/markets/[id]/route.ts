@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { marketFunctions } from "@/lib/harperdb-functions";
+import { getMarket } from "@/actions";
 
 export async function GET(
   request: NextRequest,
@@ -8,8 +8,8 @@ export async function GET(
   try {
     const { id: marketId } = await params;
 
-    // Call HarperDB custom function
-    const result = await marketFunctions.getMarket(marketId);
+    // Call Server Action
+    const result = await getMarket(marketId);
 
     if (!result.success) {
       return NextResponse.json(
@@ -18,7 +18,7 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(result.data);
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to fetch market" },

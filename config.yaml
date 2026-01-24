@@ -1,22 +1,23 @@
 # HarperDB Application Configuration
-# Based on HarperDB application template: https://github.com/HarperFast/application-template
+# Simplified config to test Next.js only (like official example)
 
 # GraphQL Schema - defines database tables
 graphqlSchema:
   files: './schema.graphql'
 
-# JavaScript Resources - custom business logic
-jsResource:
-  files: './resources.js'
-
-# Next.js Integration - https://github.com/HarperFast/nextjs
-'@harperdb/nextjs':
-  package: '@harperdb/nextjs'
-  files: '*'
-  dev: false
-  prebuilt: false
-  setCwd: true
+# TEMPORARILY DISABLED - Testing without jsResource
+# jsResource:
+#   files: './resources.js'
+#   urlPath: '/api/hdb'
+# rest: true
+# graphql: false
 
 # Data Loader - seed data for initial population
 dataLoader:
-  files: './seed/data.json'
+  files: './seed/*.json'
+
+# Next.js Integration - https://github.com/HarperFast/nextjs (LAST to avoid file conflicts)
+'@harperdb/nextjs':
+  package: '@harperdb/nextjs'
+  files: '*'  # Match official example pattern
+  prebuilt: false

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { orderbookFunctions } from "@/lib/harperdb-functions";
+import { placeOrder, getOrders } from "@/actions";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,8 +17,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call HarperDB custom function
-    const result = await orderbookFunctions.placeOrder({
+    // Call Server Action
+    const result = await placeOrder({
       userId,
       marketId,
       side,
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(result.data);
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to place order" },
@@ -50,8 +50,8 @@ export async function GET(request: NextRequest) {
     const marketId = searchParams.get("marketId");
     const status = searchParams.get("status");
 
-    // Call HarperDB custom function
-    const result = await orderbookFunctions.getOrders({
+    // Call Server Action
+    const result = await getOrders({
       userId: userId || undefined,
       marketId: marketId || undefined,
       status: status || undefined,
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(result.data);
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to fetch orders" },

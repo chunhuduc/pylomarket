@@ -11,9 +11,16 @@ const nextConfig: NextConfig = {
     },
   },
 
+  webpack: (config) => {
+    config.externals.push({
+      harperdb: 'commonjs harperdb',
+    });
+    return config;
+  },
+
   // Empty turbopack config to silence migration warning
   // HarperDB package will be handled by @harperdb/nextjs extension
-  turbopack: {},
+  // turbopack: {},
 };
 
 export default nextConfig;

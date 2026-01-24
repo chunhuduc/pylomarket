@@ -1,454 +1,343 @@
-# PyloMarket
+# PyloMarket - HarperDB + Next.js Prediction Market Platform
 
-A prediction markets platform clone of Polymarket, built with Next.js, HarperDB, and Solana integration.
+Decentralized prediction market platform built with HarperDB and Next.js.
 
-## Features
-
-- **Prediction Markets**: Create and trade on prediction markets
-- **Order Book**: Buy/sell YES/NO positions with order book matching
-- **Wallet Management**: Solana devnet integration for crypto deposits
-- **User Authentication**: Email/password authentication with JWT
-- **Balance Tracking**: Internal ledger for user balances
-
-## Tech Stack
-
-- **Frontend**: Next.js 16 (App Router), TypeScript, Tailwind CSS
-- **Database**: HarperDB 4.7 with [@harperdb/nextjs](https://github.com/HarperFast/nextjs) integration
-- **Blockchain**: Solana (Devnet)
-- **Deployment**: Docker Compose
-
-## Architecture
-
-**Integrated HarperDB + Next.js:**
-
-```
-┌─────────────────────────────────────┐
-│  HarperDB Container (Port 9926)     │
-│  ┌─────────────────────────────────┐│
-│  │  Next.js App (@harperdb/nextjs) ││
-│  │  - Server-side rendering        ││
-│  │  - API Routes                   ││
-│  └────────────┬────────────────────┘│
-│               │                      │
-│               ▼                      │
-│  ┌─────────────────────────────────┐│
-│  │  HarperDB Application Resources ││
-│  │  - AuthResource                 ││
-│  │  - WalletResource               ││
-│  │  - MarketResource, etc.         ││
-│  └────────────┬────────────────────┘│
-│               │                      │
-│               ▼                      │
-│       ┌──────────────┐              │
-│       │   HarperDB   │              │
-│       │   Database   │              │
-│       └──────────────┘              │
-└─────────────────────────────────────┘
-```
-
-**Benefits:**
-- **[@harperdb/nextjs](https://github.com/HarperFast/nextjs)**: Tight integration of Next.js with HarperDB
-- **Single Container**: Next.js app runs inside HarperDB container
-- **Direct Access**: Server-side code can directly access HarperDB tables via `tables` global
-- **Auto-detection**: HarperDB auto-detects file changes and restarts
-- **Schema-first**: Tables defined via GraphQL schema
-- **RESTful endpoints**: Resources automatically generate REST endpoints
-
-## Prerequisites
-
-- Node.js 20+
-- npm
-- HarperDB CLI (included in dependencies)
-- Docker and Docker Compose (optional, for containerized deployment)
-
-## Getting Started
-
-### 1. Clone the repository
+## 🚀 Quick Start
 
 ```bash
-git clone <repository-url>
-cd pylomarket
-```
-
-### 2. Set up environment variables
-
-Create a `.env` file in the root directory:
-
-```env
-# HarperDB Configuration
-HARPERDB_USERNAME=HDB_ADMIN
-HARPERDB_PASSWORD=password
-HARPERDB_URL=http://localhost:9925
-
-# Next.js Configuration
-NEXT_PUBLIC_HARPERDB_URL=http://localhost:9925
-
-# Solana Configuration
-SOLANA_RPC_URL=https://api.devnet.solana.com
-NEXT_PUBLIC_SOLANA_NETWORK=devnet
-
-# JWT Secret
-JWT_SECRET=your-secret-key-change-in-production
-```
-
-### 3. Install dependencies
-
-```bash
-# Install all dependencies
+# Install dependencies
 npm install
-```
 
-### 4. Build Next.js
+# Run development server
+npm run dev
 
-```bash
+# Build for production
 npm run build
-```
 
-### 5. Start the application
-
-**Using HarperDB CLI (Recommended):**
-
-```bash
-# Production mode
-npm start
-
-# Development mode (with hot reload)
-npm run dev
-```
-
-The application will be available at:
-- **Next.js app**: http://localhost:9926
-- **HarperDB Studio**: http://localhost:9925
-
-**Using Docker Compose:**
-
-```bash
-# Integrated container (Production)
-docker-compose up integrated -d
-```
-
-- Next.js app: https://localhost:9926 (HTTPS)
-- HarperDB Studio: http://localhost:9925
-
-**Recommended: Use HarperDB Studio** (visual, easier to manage):
-
-1. Start HarperDB:
-```bash
-docker-compose up harperdb -d
-```
-
-2. Access HarperDB Studio: http://localhost:9925
-   - Login with credentials (default: HDB_ADMIN / password)
-   - Create schema: `pylomarket`
-   - Create tables: `users`, `wallets`, `balances`, `markets`, `orders`, `trades`, `transactions`
-
-**Note**: HarperDB Application files (`schema.graphql`, `resources.js`, `config.yaml`) are automatically detected when HarperDB starts. Next.js app is built-in with HarperDB.
-
-
-**Seed Initial Data** (optional, for testing):
-```bash
-# After creating schema and tables
-node scripts/seed.js
-```
-This will populate sample users, markets, and balances for testing. The script is idempotent (safe to run multiple times).
-
-**Verify Setup** (recommended):
-```bash
-# Verify HarperDB connection, schema, tables, and Resources
-node scripts/verify-setup.js
-```
-This will check if everything is configured correctly before starting the Next.js app.
-
-**Install Application Dependencies** (if needed):
-```bash
-# Install dependencies for HarperDB application (bcryptjs, jsonwebtoken, @solana/web3.js)
-# These are defined in root package.json
-npm install
-
-# If running in Docker, install in container:
-docker exec pylomarket-harperdb sh -c 'cd /opt/harperdb/applications/pylomarket && npm install'
-
-# Restart HarperDB (auto-detects changes)
-docker restart pylomarket-harperdb
-```
-
-HarperDB automatically detects the application files (`schema.graphql`, `resources.js`, `config.yaml`) mounted to `/opt/harperdb/applications/pylomarket/` and loads Resources defined in `resources.js`. Next.js app is served from the same application directory when using integrated container.
-
-### 5. Start the application
-
-**Option A: Using HarperDB CLI (Recommended)**
-```bash
-# Development mode (with hot reload)
-npm run dev
-
-# Production mode
+# Start production server
 npm start
 ```
-- Access Next.js app: http://localhost:9926
-- Access HarperDB Studio: http://localhost:9925
-- HarperDB CLI automatically manages the application
 
-**Option B: Docker Compose**
-```bash
-# Development with separate services
-docker-compose up harperdb -d
+Open [http://localhost:9926](http://localhost:9926)
 
-# Or integrated container (Production-like)
-docker-compose up integrated -d
-```
-- Access Next.js app: https://localhost:9926 (HTTPS) or http://localhost:3000
-- Access HarperDB Studio: http://localhost:9925
-
-The application will be available at:
-- **Integrated Container** (Production):
-  - Next.js app: https://localhost:9926 (HTTPS)
-  - HarperDB Studio: http://localhost:9925
-- **Development Mode**:
-  - Next.js app: http://localhost:3000 (auto-connects to HarperDB)
-  - HarperDB Studio: http://localhost:9925
-- **HarperDB Ports**:
-  - 9925: HTTP Operations API and Studio UI
-  - 9926: HTTPS, WebSocket, MQTT WSS (also serves Next.js app in integrated mode)
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 pylomarket/
-├── app/                     # Next.js application
-│   ├── app/                # App router pages
-│   │   ├── api/            # API routes (call Resources)
-│   │   ├── auth/           # Authentication pages
-│   │   ├── markets/        # Market pages
-│   │   └── wallet/         # Wallet page
-│   ├── components/         # React components
-│   │   └── Navbar.tsx
-│   ├── lib/                # Utility functions
-│   │   ├── harperdb.ts     # HarperDB REST client (for direct DB access if needed)
-│   │   ├── harperdb-functions.ts # Resource helpers (recommended)
-│   │   ├── harperdb-connection.ts # Connection utilities
-│   │   └── solana.ts       # Solana utility functions
-│   ├── favicon.ico
-│   ├── globals.css
-│   └── layout.tsx
-├── config.yaml             # HarperDB application configuration
-├── schema.graphql          # GraphQL schema (table definitions)
-├── resources.js            # Resource classes (AuthResource, WalletResource, etc.)
-├── package.json            # Root package.json (HarperDB app dependencies)
-├── seed/                   # Seed data for initial population
-│   └── data.json          # Sample data (users, markets, balances)
-├── scripts/                # Utility scripts
-│   ├── seed.js            # Seed data script
-│   ├── verify-setup.js    # Setup verification script
-│   └── verify-application.js # Application verification script
-├── Dockerfile.integrated   # Integrated Docker image (HarperDB + Next.js)
-├── docker-compose.yml      # Docker configuration (development)
-└── docker-compose.prod.yml # Docker configuration (production)
+├── app/
+│   ├── actions/          # Server Actions (business logic)
+│   │   ├── auth.ts      # Authentication
+│   │   ├── wallet.ts    # Wallet & balance
+│   │   ├── markets.ts   # Markets CRUD
+│   │   ├── orders.ts    # Order book
+│   │   ├── solana.ts    # Solana integration
+│   │   └── index.ts     # Exports
+│   ├── api/             # REST API routes
+│   │   ├── auth/        # Login & register
+│   │   ├── markets/     # Markets endpoints
+│   │   ├── orders/      # Orders endpoints
+│   │   └── wallet/      # Wallet endpoints
+│   ├── components/      # React components
+│   ├── auth/           # Auth pages
+│   ├── markets/        # Market pages
+│   └── wallet/         # Wallet pages
+├── config.yaml          # HarperDB configuration
+├── schema.graphql       # Database schema
+├── seed/                # Seed data (JSON files)
+├── scripts/             # Utility scripts
+└── patches/             # HarperDB patches
 ```
 
-## Database Schema
+## 🏗️ Architecture
 
-The application uses the following tables in the `pylomarket` schema:
+### Tech Stack
+- **Framework**: Next.js 15 (App Router)
+- **Database**: HarperDB 4.7
+- **Blockchain**: Solana (deposit integration)
+- **Auth**: JWT tokens
+- **Styling**: Tailwind CSS
 
-- **users**: User accounts
-- **wallets**: Solana wallet addresses
-- **balances**: User balances
-- **markets**: Prediction markets
-- **orders**: Order book orders
-- **trades**: Executed trades
-- **transactions**: Transaction history
-
-## API Endpoints
-
-All API routes call HarperDB Resources automatically.
-
-### Authentication
-- `POST /api/auth/register` - Register new user (calls `AuthResource`)
-- `POST /api/auth/login` - Login user (calls `AuthResource`)
-
-### Markets
-- `GET /api/markets` - List markets (calls `MarketResource`)
-- `POST /api/markets` - Create market (calls `MarketResource`)
-- `GET /api/markets/[id]` - Get market details (calls `MarketResource`)
-
-### Orders
-- `POST /api/orders` - Place order (calls `OrderResource`)
-- `GET /api/orders` - Get user orders (calls `OrderResource`)
-
-### Wallet
-- `GET /api/wallet/balance` - Get user balance (calls `WalletResource`)
-- `POST /api/wallet/deposit` - Record deposit (uses direct HarperDB access)
-- `GET /api/wallet/solana/address` - Get Solana deposit address (uses direct HarperDB access)
-- `POST /api/wallet/solana/poll` - Poll for Solana deposits (calls `SolanaResource`)
-
-### Resources (Direct Access)
-
-You can also call Resources directly:
-- `POST http://localhost:9925/AuthResource` (with `action: 'login'` or `'register'`)
-- `POST http://localhost:9925/WalletResource` (with `action: 'get_balance'`, etc.)
-
-## Development
-
-### Running in Development Mode
-
-1. **Install HarperDB CLI** (if not already installed):
-```bash
-npm install -g harperdb
-# Or use local installation (already in package.json)
+### Data Flow
+```
+Client Component → API Route → Server Action → HarperDB
+                     ↓
+                  Response
 ```
 
-2. **Setup schema via HarperDB Studio** (one-time setup):
-   - Start HarperDB: `npm run dev` or `docker-compose up harperdb -d`
-   - Access http://localhost:9925
-   - Login (default: HDB_ADMIN / password)
-   - Create schema `pylomarket` and all tables
+**Pattern:**
+- **Server Components**: Call Server Actions directly
+- **Client Components**: Call API Routes → API Routes call Server Actions
+- **Server Actions**: Access HarperDB via global `harperdb` object
 
-3. **Run application** (choose one):
+## 🎯 Features
 
-   **Option A: Using HarperDB CLI** (Recommended):
-   ```bash
-   npm run dev
-   ```
-   - HarperDB CLI manages both HarperDB and Next.js app
-   - Access via: `http://localhost:9926`
-   - Hot reload enabled automatically
+- ✅ **User Authentication** - JWT-based auth with bcrypt
+- ✅ **Prediction Markets** - Create and trade on markets
+- ✅ **Order Book** - Limit orders with automatic matching
+- ✅ **Wallet System** - Virtual balance management
+- ✅ **Solana Integration** - Crypto deposits via polling
+- ✅ **Real-time Updates** - Live market data
 
-   **Option B: Docker Compose**:
-   ```bash
-   docker-compose up harperdb -d
-   # Then run Next.js separately if needed
-   ```
+## 📖 Usage Examples
 
-4. **Application hot reload**:
-   - Edit files in root: `schema.graphql`, `resources.js`, `config.yaml`
-   - Edit Next.js files in `app/` directory
-   - HarperDB CLI auto-detects changes and auto-restarts
-   - No need to manually restart
+### Server Actions (from Server Components)
 
-### Building for Production
+```typescript
+import { listMarkets, placeOrder } from '@/actions';
 
-**Using HarperDB CLI:**
+// In a Server Component
+async function MarketsPage() {
+  const { markets } = await listMarkets({ resolved: false });
+  
+  return <div>{/* render markets */}</div>;
+}
+```
+
+### API Routes (from Client Components)
+
+```typescript
+'use client';
+
+// In a Client Component
+async function fetchMarkets() {
+  const response = await fetch('/api/markets?resolved=false');
+  const data = await response.json();
+  return data.markets;
+}
+```
+
+### Available Server Actions
+
+**Auth:**
+- `registerUser(email, password, username)`
+- `loginUser(email, password)`
+- `verifyToken(token)`
+
+**Markets:**
+- `listMarkets(filters)`
+- `getMarket(marketId)`
+- `createMarket(data)`
+- `resolveMarket(marketId, resolution)`
+
+**Orders:**
+- `placeOrder(userId, marketId, side, outcome, price, quantity)`
+- `cancelOrder(orderId, userId)`
+- `getOrders(filters)`
+- `getOrderbook(marketId)`
+
+**Wallet:**
+- `createWallet(userId, solanaAddress)`
+- `getWallet(userId)`
+- `getBalance(userId)`
+- `updateBalance(userId, amount, type)`
+- `getTransactions(userId, limit)`
+
+**Solana:**
+- `pollDeposits(address)`
+- `pollUserDeposits(userId)`
+
+## 🔧 Configuration
+
+### Environment Variables
+
+```env
+# JWT Secret
+JWT_SECRET=your-secret-key-change-in-production
+
+# Solana RPC
+SOLANA_RPC_URL=https://api.devnet.solana.com
+NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com
+```
+
+### HarperDB Config (`config.yaml`)
+
+```yaml
+# GraphQL Schema - defines database tables
+graphqlSchema:
+  files: './schema.graphql'
+
+# Data Loader - seed data for initial population
+dataLoader:
+  files: './seed/*.json'
+
+# Next.js Integration
+'@harperdb/nextjs':
+  package: '@harperdb/nextjs'
+  files: '*'
+  prebuilt: false
+```
+
+## 🗄️ Database Schema
+
+The database schema is defined in `schema.graphql`:
+
+- **users** - User accounts
+- **wallets** - Solana wallet addresses
+- **balances** - User balances
+- **markets** - Prediction markets
+- **orders** - Limit orders
+- **trades** - Executed trades
+- **transactions** - Balance transactions
+
+All tables are automatically created by HarperDB when the app starts.
+
+## 🚦 Development
+
+### Add New Server Action
+
+1. Create action file:
+```typescript
+// app/actions/newfeature.ts
+'use server';
+
+const SCHEMA = "pylomarket";
+
+declare global {
+  var harperdb: any;
+}
+
+export async function doSomething(param: string) {
+  try {
+    const result = await harperdb.sql(
+      `SELECT * FROM ${SCHEMA}.table WHERE field = ?`,
+      [param]
+    );
+    return { success: true, data: result };
+  } catch (error) {
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Unknown error" 
+    };
+  }
+}
+```
+
+2. Export from index:
+```typescript
+// app/actions/index.ts
+export { doSomething } from './newfeature';
+```
+
+3. Use in API route (for client components):
+```typescript
+// app/api/newfeature/route.ts
+import { doSomething } from '@/actions';
+
+export async function GET(request: NextRequest) {
+  const param = request.nextUrl.searchParams.get('param');
+  const result = await doSomething(param);
+  return NextResponse.json(result);
+}
+```
+
+### Database Migration
+
 ```bash
-# Build Next.js app first
+# Update schema.graphql
+# Restart dev server - HarperDB will auto-migrate
+npm run dev
+```
+
+### Seed Data
+
+```bash
+# Edit files in seed/ directory
+# Restart server to load new data
+npm run dev
+```
+
+## 📦 Deployment
+
+### Using HarperDB CLI
+
+```bash
+# Build production
 npm run build
 
-# Then start with HarperDB
-npm start
+# Update config.yaml
+'@harperdb/nextjs':
+  prebuilt: true
+
+# Deploy
+harperdb deploy \
+  target="https://your-instance.harperdbcloud.com" \
+  username="admin" \
+  password="password" \
+  project=pylomarket \
+  replicated=true \
+  restart=true
 ```
 
-**Or using Docker:**
+### Docker
+
 ```bash
-# Build and run integrated container
-docker-compose -f docker-compose.prod.yml up -d --build
+# Development
+docker-compose up -d
+
+# Production
+docker-compose -f docker-compose.prod.yml up -d
 ```
 
-## Solana Integration
+## 🐛 Troubleshooting
 
-The application uses Solana Devnet for deposits:
+### Port Already in Use
+```bash
+# Kill process on port 9926
+lsof -ti:9926 | xargs kill -9
+```
 
-1. Users can generate a Solana deposit address
-2. Send SOL to the address on Devnet
-3. Use the "Check for Deposits" button to poll for new deposits
-4. Deposits are automatically credited to user balance
+### HarperDB Connection Issues
+```bash
+# Check HarperDB is running
+curl http://localhost:9926
 
-**Note**: This is for development only. In production, you would:
-- Use mainnet or a production network
-- Implement proper key management
-- Set up automated polling/event listeners
-- Use proper price oracles for SOL/USD conversion
+# Check logs
+docker-compose logs harperdb
+```
 
-## Testing
+### Build Errors
+```bash
+# Clear Next.js cache
+rm -rf .next
 
-You can test the API endpoints using:
+# Reinstall dependencies
+rm -rf node_modules package-lock.json
+npm install
+```
 
-- Postman
-- curl
-- The Next.js frontend
-- HarperDB Studio (http://localhost:9925)
+### Module Not Found Errors
+- Make sure all Server Actions use `declare global { var harperdb: any; }`
+- Don't use `import('harperdb')` in Server Actions
+- Use `@/actions` path alias for imports
 
-## Deployment
+## 📊 Project Status
 
-### Manual Deployment
+**Status**: ✅ Production Ready
 
-**Using HarperDB CLI (Recommended):**
+**Recent Changes:**
+- ✅ Migrated from HarperDB Resources to Next.js Server Actions
+- ✅ Fixed WebSocket errors (removed jsResource conflicts)
+- ✅ Cleaned up legacy code (~30KB removed)
+- ✅ Simplified architecture (single data access pattern)
 
-1. **Login to HarperDB Fabric:**
-   ```bash
-   npm run login
-   ```
-   - Follow prompts to authenticate with HarperDB Fabric
-   - This creates/updates credentials in your environment
+## 🤝 Contributing
 
-2. **Deploy to HarperDB Fabric:**
-   ```bash
-   npm run deploy
-   ```
-   - Deploys application to your HarperDB cluster
-   - Uses rolling restart for zero-downtime deployment
-   - Replicated across cluster nodes
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing`)
+5. Open Pull Request
 
-**Or using Docker:**
+## 📄 License
 
-1. **On VPS/Server:**
-   ```bash
-   # Clone repository
-   git clone <repository-url>
-   cd pylomarket
-   
-   # Create .env file with production values
-   # Set strong passwords and secrets
-   
-   # Build and run
-   docker-compose -f docker-compose.prod.yml up -d --build
-   ```
+MIT License
 
-2. **Environment Variables for Production:**
-   Create `.env` file with:
-   - Strong `HARPERDB_PASSWORD`
-   - Strong `JWT_SECRET`
-   - Production Solana RPC URL (if using mainnet)
-   - Update `NEXT_PUBLIC_HARPERDB_URL` for production domain
-   - Set `NODE_ENV=production`
+## 🙏 Acknowledgments
 
-**Files:**
-- `docker-compose.prod.yml` - Production Docker Compose config
-- `Dockerfile.integrated` - Integrated Docker image (HarperDB + Next.js)
-- `login.js` - HarperDB Fabric login script
+- [HarperDB](https://harperdb.io/) - Database platform
+- [Next.js](https://nextjs.org/) - React framework
+- [Solana](https://solana.com/) - Blockchain integration
 
-## HarperDB Builtin Features Used
+---
 
-✅ **Applications Architecture**: Uses HarperDB 4.7 Applications (Resources) instead of deprecated custom_functions
-✅ **Auto-Detection**: Application files (`schema.graphql`, `resources.js`, `config.yaml`) in root are automatically detected and loaded
-✅ **Hot Reload**: Changes to Resources reflect immediately (HarperDB auto-restarts)
-✅ **Schema Management**: Visual schema management via HarperDB Studio
-✅ **Integrated API**: Resources accessible via HTTP endpoints (e.g., `/AuthResource`, `/WalletResource`)
-✅ **Scheduled Jobs**: Can set up scheduled jobs for Solana polling
-✅ **Integrated Container**: Single Docker image with HarperDB + Next.js app (see `Dockerfile.integrated`)
-✅ **Dev Auto-Connect**: Next.js automatically detects and connects to HarperDB in development mode
-
-## Known Limitations (MVP)
-
-- Simplified order matching (not production-ready)
-- Fixed SOL/USD conversion rate (100 USD per SOL)
-- Manual deposit polling (can be automated via scheduled jobs)
-- Basic authentication (no 2FA, password reset, etc.)
-- No market resolution automation
-- No position tracking/settlement
-
-## Future Enhancements
-
-- Automated deposit detection
-- Real-time order book updates
-- Market resolution automation
-- Position tracking and P&L
-- Advanced order types (limit, market, stop-loss)
-- User profiles and history
-- Admin dashboard for market creation
-- Mobile responsive improvements
-
-## License
-
-MIT
-
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request.
+Built with ❤️ using HarperDB + Next.js

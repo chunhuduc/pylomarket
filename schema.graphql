@@ -1,7 +1,7 @@
 # PyloMarket Schema Definition
 # HarperDB 4.7 Application Schema
 
-type User @table {
+type User @table(database: "pylomarket") {
   id: String @primaryKey
   email: String @indexed
   username: String
@@ -10,7 +10,7 @@ type User @table {
   updated_at: String
 }
 
-type Wallet @table {
+type Wallet @table(database: "pylomarket") {
   id: String @primaryKey
   user_id: String @indexed
   solana_address: String
@@ -18,7 +18,7 @@ type Wallet @table {
   updated_at: String
 }
 
-type Balance @table {
+type Balance @table(database: "pylomarket") {
   id: String @primaryKey
   user_id: String @indexed
   balance: Float
@@ -26,7 +26,7 @@ type Balance @table {
   updated_at: String
 }
 
-type Market @table {
+type Market @table(database: "pylomarket") {
   id: String @primaryKey
   title: String
   description: String
@@ -38,7 +38,7 @@ type Market @table {
   updated_at: String
 }
 
-type Order @table {
+type Order @table(database: "pylomarket") {
   id: String @primaryKey
   market_id: String @indexed
   user_id: String @indexed
@@ -52,7 +52,7 @@ type Order @table {
   updated_at: String
 }
 
-type Trade @table {
+type Trade @table(database: "pylomarket") {
   id: String @primaryKey
   market_id: String @indexed
   buy_order_id: String
@@ -65,7 +65,7 @@ type Trade @table {
   created_at: String
 }
 
-type Transaction @table {
+type Transaction @table(database: "pylomarket") {
   id: String @primaryKey
   user_id: String @indexed
   type: String

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authFunctions } from "@/lib/harperdb-functions";
+import { registerUser } from "@/actions";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,8 +12,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call HarperDB custom function
-    const result = await authFunctions.register({ email, password, username });
+    // Call Server Action
+    const result = await registerUser(email, password, username);
 
     if (!result.success) {
       return NextResponse.json(
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(result.data);
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Registration failed" },

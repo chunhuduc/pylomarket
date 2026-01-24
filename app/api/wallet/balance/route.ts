@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { walletFunctions } from "@/lib/harperdb-functions";
+import { getBalance } from "@/actions";
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,8 +9,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Call HarperDB custom function
-    const result = await walletFunctions.getBalance(userId);
+    // Call Server Action
+    const result = await getBalance(userId);
 
     if (!result.success) {
       return NextResponse.json(
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(result.data);
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to get balance" },

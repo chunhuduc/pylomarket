@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { solanaFunctions } from "@/lib/harperdb-functions";
+import { pollDeposits } from "@/actions";
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,8 +9,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Address required" }, { status: 400 });
     }
 
-    // Call HarperDB custom function
-    const result = await solanaFunctions.pollDeposits({ address });
+    // Call Server Action
+    const result = await pollDeposits(address);
 
     if (!result.success) {
       return NextResponse.json(
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(result.data);
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to poll deposits" },
