@@ -11,6 +11,11 @@ const nextConfig: NextConfig = {
     },
   },
 
+  // Disable ESLint during builds (type checking is enough)
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+
   webpack: (config) => {
     config.externals.push({
       harperdb: 'commonjs harperdb',

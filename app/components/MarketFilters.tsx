@@ -1,11 +1,13 @@
 "use client";
 
+type FilterType = "all" | "trending" | "popular" | "ending-soon";
+
 interface Props {
-  activeFilter: string;
-  onFilterChange: (filter: string) => void;
+  activeFilter: FilterType;
+  onFilterChange: (filter: FilterType) => void;
 }
 
-const filters = [
+const filters: { id: FilterType; label: string }[] = [
   { id: "all", label: "All" },
   { id: "trending", label: "Trending" },
   { id: "popular", label: "Popular" },

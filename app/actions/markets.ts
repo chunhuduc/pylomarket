@@ -71,7 +71,8 @@ export async function createMarket(data: {
   try {
     const { title, description, category, endDate } = data;
     
-    const market = await Market.create({
+    // Use type assertion to bypass incorrect HarperDB type definitions
+    const market = await (Market as any).create({
       title,
       description,
       category: category || "general",

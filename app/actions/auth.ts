@@ -7,26 +7,23 @@
 
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { databases } from "harperdb";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
-const SCHEMA = "pylomarket";
 
-// Declare global harperdb type
-declare global {
-  var harperdb: any;
-}
+// Extract tables from databases
+const { User, Wallet, Balance } = databases.pylomarket;
 
 export async function registerUser(email: string, password: string, username: string) {
   try {
-    // Check if user exists
-    const existingUsers = await harperdb.searchByValue(
-      SCHEMA,
-      "users",
-      "email",
-      email
-    );
+    // Check if user exists using Resource API
+    const filter: any = { email };
+    const existingUsersArray = [];
+    for await (const user of User.search(filter)) {
+      existingUsersArray.push(user);
+    }
 
-    if (existingUsers && existingUsers.length > 0) {
+    if (existingUsersArray.length > 0) {
       return { success: false, error: "User with this email already exists" };
     }
 
@@ -35,7 +32,7 @@ export async function registerUser(email: string, password: string, username: st
 
     // Create user
     const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const user = {
+    const userData = {
       id: userId,
       email,
       username,
@@ -44,25 +41,25 @@ export async function registerUser(email: string, password: string, username: st
       updated_at: new Date().toISOString(),
     };
 
-    await harperdb.insert(SCHEMA, "users", [user]);
+    await (User as any).create(userData);
 
     // Create wallet and balance
     const walletId = `wallet_${userId}`;
-    await harperdb.insert(SCHEMA, "wallets", [{
+    await (Wallet as any).create({
       id: walletId,
       user_id: userId,
       solana_address: "",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    }]);
+    });
 
-    await harperdb.insert(SCHEMA, "balances", [{
+    await (Balance as any).create({
       id: `balance_${userId}`,
       user_id: userId,
       balance: 0,
       currency: "USD",
       updated_at: new Date().toISOString(),
-    }]);
+    });
 
     return { success: true, userId, message: "User registered successfully" };
   } catch (error: any) {
@@ -72,18 +69,25 @@ export async function registerUser(email: string, password: string, username: st
 
 export async function loginUser(email: string, password: string) {
   try {
-    const users = await harperdb.searchByValue(
-      SCHEMA,
-      "users",
-      "email",
-      email
-    );
+    // Search users by email using Resource API
+    const filter: any = { email };
+    const usersArray = [];
+    for await (const user of User.search(filter)) {
+      usersArray.push(user);
+    }
 
-    if (!users || users.length === 0) {
+    if (usersArray.length === 0) {
       return { success: false, error: "Invalid credentials" };
     }
 
-    const user = users[0];
+    // Convert HarperDB object to plain object
+    const user = {
+      id: usersArray[0].id,
+      email: usersArray[0].email,
+      username: usersArray[0].username,
+      password_hash: usersArray[0].password_hash,
+    };
+
     const isValid = await bcrypt.compare(password, user.password_hash);
 
     if (!isValid) {

@@ -114,10 +114,10 @@ export default function InfiniteMarketsList({ initialMarkets }: Props) {
       });
 
       if (result.success) {
-        if (result.markets.length < 20) {
+        if (result.markets!.length < 20) {
           setHasMore(false);
         }
-        setAllMarkets(prev => [...prev, ...result.markets]);
+        setAllMarkets(prev => [...prev, ...result.markets!]);
         setOffset(prev => prev + 20);
       }
     } catch (error) {

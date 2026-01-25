@@ -134,8 +134,8 @@ async function matchOrders(marketId: string) {
     const orderbookResult = await getOrderbook(marketId);
     if (!orderbookResult.success) return { success: false, trades: [] };
     
-    const buyOrders = orderbookResult.orderbook.buy;
-    const sellOrders = orderbookResult.orderbook.sell;
+    const buyOrders = orderbookResult!.orderbook!.buy;
+    const sellOrders = orderbookResult!.orderbook!.sell;
 
     const trades = [];
 
