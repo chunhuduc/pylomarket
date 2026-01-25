@@ -34,8 +34,12 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
+          load: false
           tags: |
             registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket:latest
+          cache-from: type=registry,ref=registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket:buildcache
+          cache-to: type=registry,ref=registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket:buildcache,mode=max
+          outputs: type=image,push=true
 
   # Deploy to primary node first (sequential deployment)
   deploy-primary:
