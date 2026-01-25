@@ -70,17 +70,66 @@ ssh-copy-id -i ~/.ssh/github_actions_deploy.pub user@your-vps-ip
 
 **Value**: Content of the private key file (starts with `-----BEGIN OPENSSH PRIVATE KEY-----`)
 
+### 5. HARPERDB_USERNAME
+
+**Description**: HarperDB admin username
+
+**Example values**:
+- `HDB_ADMIN`
+- `admin`
+- Custom username
+
+### 6. HARPERDB_PASSWORD
+
+**Description**: HarperDB admin password
+
+**Security**: Use a strong password. Keep this secure and never commit it to the repository.
+
+### 7. JWT_SECRET
+
+**Description**: Secret key for JWT token generation
+
+**How to generate**:
+```bash
+# Generate a random secret (32+ characters recommended)
+openssl rand -base64 32
+```
+
+**Security**: Use a strong, random secret. Keep this secure and never commit it to the repository.
+
 ## Optional Secrets
 
 These secrets have default values and are only needed if you want to override the defaults.
 
-### 5. VPS_HOST (Optional - for backward compatibility)
+### 8. SOLANA_RPC_URL (Optional)
+
+**Description**: Solana RPC endpoint URL
+
+**Default**: `https://api.devnet.solana.com` (if not set)
+
+**Example values**:
+- `https://api.devnet.solana.com` (default - devnet)
+- `https://api.mainnet-beta.solana.com` (mainnet)
+- Custom RPC endpoint
+
+### 9. NEXT_PUBLIC_SOLANA_NETWORK (Optional)
+
+**Description**: Solana network identifier
+
+**Default**: `devnet` (if not set)
+
+**Example values**:
+- `devnet` (default)
+- `mainnet-beta`
+- `testnet`
+
+### 10. VPS_HOST (Optional - for backward compatibility)
 
 **Description**: IP address or domain name of your VPS (legacy, nodes are now defined in workflow file)
 
 **Note**: Node IPs are now defined directly in `.github/workflows/deploy.yml`. This secret is kept for backward compatibility.
 
-### 6. VPS_USER (Optional)
+### 11. VPS_USER (Optional)
 
 **Description**: SSH username for VPS access (shared across all nodes)
 
@@ -96,7 +145,11 @@ These secrets have default values and are only needed if you want to override th
 - This username is used for all nodes. All nodes should have the same SSH user.
 - If you're using the default `root` user, you don't need to set this secret.
 
-### 7. VPS_DEPLOY_PATH (Optional)
+### 12. VPS_DEPLOY_PATH (Optional - No longer needed)
+
+**Description**: ~~Path on VPS where the application will be deployed~~ (Deprecated)
+
+**Note**: This secret is no longer needed as we use `docker run` directly without requiring a deployment directory. Kept for backward compatibility only.
 
 **Description**: Path on VPS where the application will be deployed
 
@@ -184,25 +237,26 @@ sudo apt install git -y
 sudo yum install git -y
 ```
 
-### Initialize Deployment Directory
+### Create .env.production (Optional - if not using GitHub Secrets)
 
+**Note**: If you prefer to store environment variables on the VPS instead of GitHub Secrets, you can create a `.env.production` file. However, it's recommended to use GitHub Secrets for better security.
+
+If you choose to use `.env.production`:
 ```bash
-# Create deployment directory
+# Create .env.production file (optional)
 sudo mkdir -p /opt/pylomarket
-sudo chown $USER:$USER /opt/pylomarket
-
-# Initialize git repository
 cd /opt/pylomarket
-git init
-git remote add origin https://github.com/your-username/pylomarket.git
-git fetch origin main
-git checkout -b main origin/main
-
-# Create .env.production file
-touch .env.production
-# Edit with your production environment variables
 nano .env.production
+
+# Add required variables:
+# HARPERDB_USERNAME=your_username
+# HARPERDB_PASSWORD=your_password
+# JWT_SECRET=your_jwt_secret
+# SOLANA_RPC_URL=https://api.devnet.solana.com
+# NEXT_PUBLIC_SOLANA_NETWORK=devnet
 ```
+
+**However**, the current workflow passes environment variables directly from GitHub Secrets, so `.env.production` is **not required**.
 
 ## Setup Steps
 
@@ -223,14 +277,13 @@ nano .env.production
    ssh -i ~/.ssh/github_actions_deploy user@your-vps-ip
    ```
 
-5. **Initialize Deployment Directory on VPS** (see VPS Setup section above)
-
-6. **Add Secrets to GitHub**:
+5. **Add Secrets to GitHub**:
    - Go to repository Settings → Secrets and variables → Actions
    - Add each secret one by one
    - Use descriptive names exactly as listed above
+   - **Required secrets**: `DOCR_REGISTRY_NAME`, `DOCR_USERNAME`, `DOCR_PASSWORD`, `VPS_SSH_PRIVATE_KEY`, `HARPERDB_USERNAME`, `HARPERDB_PASSWORD`, `JWT_SECRET`
 
-7. **Verify Setup**:
+6. **Verify Setup**:
    - Push a commit to `main` branch
    - Check Actions tab in GitHub to see if deployment runs
 

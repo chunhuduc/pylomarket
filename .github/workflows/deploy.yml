@@ -56,19 +56,21 @@ jobs:
         env:
           NODE_HOST: "68.183.184.199"
           NODE_USER: ${{ secrets.VPS_USER || 'root' }}
-          NODE_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH || '/opt/pylomarket' }}
           DOCR_REGISTRY: ${{ secrets.DOCR_REGISTRY_NAME }}
           DOCR_USERNAME: ${{ secrets.DOCR_USERNAME }}
           DOCR_PASSWORD: ${{ secrets.DOCR_PASSWORD }}
           NODE_ROLE: "primary"
+          HARPERDB_USERNAME: ${{ secrets.HARPERDB_USERNAME }}
+          HARPERDB_PASSWORD: ${{ secrets.HARPERDB_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL || 'https://api.devnet.solana.com' }}
+          NEXT_PUBLIC_SOLANA_NETWORK: ${{ secrets.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet' }}
         run: |
           # Set defaults if not provided
           NODE_USER=${NODE_USER:-root}
-          NODE_DEPLOY_PATH=${NODE_DEPLOY_PATH:-/opt/pylomarket}
           
           echo "🚀 Deploying to primary node: $NODE_HOST"
           echo "👤 Using SSH user: $NODE_USER"
-          echo "📁 Using deploy path: $NODE_DEPLOY_PATH"
           ssh-keyscan -H $NODE_HOST >> ~/.ssh/known_hosts
           
           # Copy setup script to VPS
@@ -83,86 +85,47 @@ jobs:
             bash /tmp/setup-docker.sh
             rm /tmp/setup-docker.sh
             
-            # Ensure deployment directory exists
-            echo "📁 Ensuring deployment directory exists..."
-            if [ ! -d "$NODE_DEPLOY_PATH" ]; then
-              echo "📦 Creating deployment directory: $NODE_DEPLOY_PATH"
-              sudo mkdir -p "$NODE_DEPLOY_PATH"
-              sudo chown -R $USER:$USER "$NODE_DEPLOY_PATH"
-            else
-              echo "✅ Deployment directory exists: $NODE_DEPLOY_PATH"
-            fi
-            
-            # Navigate to deployment directory
-            cd "$NODE_DEPLOY_PATH" || exit 1
-            
-            # Initialize git repository if not already initialized
-            if [ ! -d .git ]; then
-              echo "📦 Initializing git repository..."
-              git init
-              # Note: You may need to set the git remote manually if this is the first deployment
-              # git remote add origin https://github.com/your-username/pylomarket.git
-            fi
-            
-            # Ensure git remote is set (if not, try to add it from current repo)
-            if ! git remote get-url origin &>/dev/null; then
-              echo "⚠️  Git remote not set. Attempting to detect from current directory..."
-              # This will be handled by git fetch below if remote doesn't exist
-            fi
-            
             # Login to DOCR
             echo "🔐 Logging in to Digital Ocean Container Registry..."
             echo "$DOCR_PASSWORD" | docker login registry.digitalocean.com -u "$DOCR_USERNAME" --password-stdin
             
-            # Pull latest code for docker-compose and env files
-            echo "📥 Pulling latest code..."
-            if git remote get-url origin &>/dev/null; then
-              git fetch origin main || echo "⚠️  Git fetch failed, continuing..."
-              git reset --hard origin/main || echo "⚠️  Git reset failed, continuing..."
-            else
-              echo "⚠️  Git remote not configured. Skipping git pull."
-              echo "💡 Please set git remote manually: git remote add origin <repo-url>"
-            fi
-            
-            # Check if .env.production exists
-            if [ ! -f .env.production ]; then
-              echo "⚠️  Warning: .env.production not found. Please create it manually."
-              exit 1
-            fi
-            
-            # Load environment variables
-            export \$(cat .env.production | grep -v '^#' | xargs)
-            
-            # Export DOCR registry name and node role for docker-compose
-            export DOCR_REGISTRY_NAME=$DOCR_REGISTRY
-            export HDB_NODE_ROLE=$NODE_ROLE
-            
-            # Build cluster nodes list (for peer-to-peer)
-            # For now, just this node. Add more nodes later: "http://68.183.184.199:9925,http://node2:9925"
-            export HDB_CLUSTER_NODES="http://$NODE_HOST:9925"
-            
-            # Stop existing containers (keep volumes)
-            echo "🛑 Stopping existing containers..."
-            docker-compose -f docker-compose.prod.yml down || true
+            # Stop and remove existing container (keep volumes)
+            echo "🛑 Stopping existing container..."
+            docker stop pylomarket-app-prod 2>/dev/null || true
+            docker rm pylomarket-app-prod 2>/dev/null || true
             
             # Verify/create volume for data persistence
             echo "💾 Checking data volume..."
-            # Docker Compose creates volumes with project name prefix (default: directory name)
-            # Check for volume with harperdb_data in name
-            if ! docker volume ls | grep -q harperdb_data; then
-              echo "📦 Volume will be created automatically by docker-compose"
+            if ! docker volume ls | grep -q pylomarket_harperdb_data; then
+              echo "📦 Creating data volume..."
+              docker volume create pylomarket_harperdb_data
             else
               echo "✅ Data volume exists"
-              docker volume ls | grep harperdb_data
+              docker volume ls | grep pylomarket_harperdb_data
             fi
             
             # Pull latest image from registry
             echo "📥 Pulling latest image from DOCR..."
             docker pull registry.digitalocean.com/$DOCR_REGISTRY/pylomarket:latest
             
-            # Start containers (will use image from registry)
-            echo "🚀 Starting containers..."
-            DOCR_REGISTRY_NAME=$DOCR_REGISTRY HDB_NODE_ROLE=$NODE_ROLE HDB_CLUSTER_NODES="http://$NODE_HOST:9925" docker-compose -f docker-compose.prod.yml up -d
+            # Start container with all environment variables
+            echo "🚀 Starting container..."
+            docker run -d \\
+              --name pylomarket-app-prod \\
+              --restart always \\
+              -p 9925:9925 \\
+              -p 9926:9926 \\
+              -v pylomarket_harperdb_data:/opt/harperdb/hdb \\
+              -e HDB_ADMIN_USERNAME="$HARPERDB_USERNAME" \\
+              -e HDB_ADMIN_PASSWORD="$HARPERDB_PASSWORD" \\
+              -e HDB_HOSTNAME=0.0.0.0 \\
+              -e NODE_ENV=production \\
+              -e JWT_SECRET="$JWT_SECRET" \\
+              -e SOLANA_RPC_URL="$SOLANA_RPC_URL" \\
+              -e NEXT_PUBLIC_SOLANA_NETWORK="$NEXT_PUBLIC_SOLANA_NETWORK" \\
+              -e HDB_NODE_ROLE=$NODE_ROLE \\
+              -e HDB_CLUSTER_NODES="http://$NODE_HOST:9925" \\
+              registry.digitalocean.com/$DOCR_REGISTRY/pylomarket:latest
             
             # Verify ports are exposed
             echo "🔌 Verifying port exposure..."
@@ -210,9 +173,9 @@ jobs:
             if [ "\$HEALTH_CHECK_PASSED" = false ]; then
               echo "❌ Health check failed after \$MAX_RETRIES attempts"
               echo "📋 Container status:"
-              docker-compose -f docker-compose.prod.yml ps
+              docker ps -a | grep pylomarket-app-prod
               echo "📋 Container logs:"
-              docker-compose -f docker-compose.prod.yml logs --tail=50
+              docker logs pylomarket-app-prod --tail=50
               exit 1
             fi
             
@@ -255,20 +218,22 @@ jobs:
         env:
           NODE_HOST: ${{ matrix.node.host }}
           NODE_USER: ${{ secrets.VPS_USER || 'root' }}
-          NODE_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH || '/opt/pylomarket' }}
           DOCR_REGISTRY: ${{ secrets.DOCR_REGISTRY_NAME }}
           DOCR_USERNAME: ${{ secrets.DOCR_USERNAME }}
           DOCR_PASSWORD: ${{ secrets.DOCR_PASSWORD }}
           NODE_ROLE: ${{ matrix.node.role }}
           PRIMARY_NODE: "68.183.184.199"
+          HARPERDB_USERNAME: ${{ secrets.HARPERDB_USERNAME }}
+          HARPERDB_PASSWORD: ${{ secrets.HARPERDB_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL || 'https://api.devnet.solana.com' }}
+          NEXT_PUBLIC_SOLANA_NETWORK: ${{ secrets.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet' }}
         run: |
           # Set defaults if not provided
           NODE_USER=${NODE_USER:-root}
-          NODE_DEPLOY_PATH=${NODE_DEPLOY_PATH:-/opt/pylomarket}
           
           echo "🚀 Deploying to replica node: $NODE_HOST"
           echo "👤 Using SSH user: $NODE_USER"
-          echo "📁 Using deploy path: $NODE_DEPLOY_PATH"
           ssh-keyscan -H $NODE_HOST >> ~/.ssh/known_hosts
           
           # Copy setup script to VPS
@@ -283,82 +248,62 @@ jobs:
             bash /tmp/setup-docker.sh
             rm /tmp/setup-docker.sh
             
-            # Ensure deployment directory exists
-            echo "📁 Ensuring deployment directory exists..."
-            if [ ! -d "$NODE_DEPLOY_PATH" ]; then
-              echo "📦 Creating deployment directory: $NODE_DEPLOY_PATH"
-              sudo mkdir -p "$NODE_DEPLOY_PATH"
-              sudo chown -R $USER:$USER "$NODE_DEPLOY_PATH"
-            else
-              echo "✅ Deployment directory exists: $NODE_DEPLOY_PATH"
-            fi
-            
-            # Navigate to deployment directory
-            cd "$NODE_DEPLOY_PATH" || exit 1
-            
-            # Initialize git repository if not already initialized
-            if [ ! -d .git ]; then
-              echo "📦 Initializing git repository..."
-              git init
-              # Note: You may need to set the git remote manually if this is the first deployment
-              # git remote add origin https://github.com/your-username/pylomarket.git
-            fi
-            
-            # Ensure git remote is set (if not, try to add it from current repo)
-            if ! git remote get-url origin &>/dev/null; then
-              echo "⚠️  Git remote not set. Attempting to detect from current directory..."
-              # This will be handled by git fetch below if remote doesn't exist
-            fi
-            
             echo "$DOCR_PASSWORD" | docker login registry.digitalocean.com -u "$DOCR_USERNAME" --password-stdin
             
-            # Pull latest code
-            echo "📥 Pulling latest code..."
-            if git remote get-url origin &>/dev/null; then
-              git fetch origin main || echo "⚠️  Git fetch failed, continuing..."
-              git reset --hard origin/main || echo "⚠️  Git reset failed, continuing..."
-            else
-              echo "⚠️  Git remote not configured. Skipping git pull."
-              echo "💡 Please set git remote manually: git remote add origin <repo-url>"
-            fi
-            
-            if [ ! -f .env.production ]; then
-              echo "⚠️  Warning: .env.production not found."
-              exit 1
-            fi
-            
-            export \$(cat .env.production | grep -v '^#' | xargs)
-            export DOCR_REGISTRY_NAME=$DOCR_REGISTRY
-            export HDB_NODE_ROLE=$NODE_ROLE
-            # Include primary and all replicas in cluster nodes list
-            export HDB_CLUSTER_NODES="http://$PRIMARY_NODE:9925,http://$NODE_HOST:9925"
-            
-            # Stop existing containers (keep volumes)
-            echo "🛑 Stopping existing containers..."
-            docker-compose -f docker-compose.prod.yml down || true
+            # Stop and remove existing container (keep volumes)
+            echo "🛑 Stopping existing container..."
+            docker stop pylomarket-app-prod 2>/dev/null || true
+            docker rm pylomarket-app-prod 2>/dev/null || true
             
             # Verify/create volume for data persistence
             echo "💾 Checking data volume..."
-            # Docker Compose creates volumes with project name prefix (default: directory name)
-            # Check for volume with harperdb_data in name
-            if ! docker volume ls | grep -q harperdb_data; then
-              echo "📦 Volume will be created automatically by docker-compose"
+            if ! docker volume ls | grep -q pylomarket_harperdb_data; then
+              echo "📦 Creating data volume..."
+              docker volume create pylomarket_harperdb_data
             else
               echo "✅ Data volume exists"
-              docker volume ls | grep harperdb_data
+              docker volume ls | grep pylomarket_harperdb_data
             fi
             
             docker pull registry.digitalocean.com/$DOCR_REGISTRY/pylomarket:latest
             
-            DOCR_REGISTRY_NAME=$DOCR_REGISTRY HDB_NODE_ROLE=$NODE_ROLE HDB_CLUSTER_NODES="http://$PRIMARY_NODE:9925,http://$NODE_HOST:9925" docker-compose -f docker-compose.prod.yml up -d
+            # Start container with all environment variables
+            echo "🚀 Starting container..."
+            docker run -d \\
+              --name pylomarket-app-prod \\
+              --restart always \\
+              -p 9925:9925 \\
+              -p 9926:9926 \\
+              -v pylomarket_harperdb_data:/opt/harperdb/hdb \\
+              -e HDB_ADMIN_USERNAME="$HARPERDB_USERNAME" \\
+              -e HDB_ADMIN_PASSWORD="$HARPERDB_PASSWORD" \\
+              -e HDB_HOSTNAME=0.0.0.0 \\
+              -e NODE_ENV=production \\
+              -e JWT_SECRET="$JWT_SECRET" \\
+              -e SOLANA_RPC_URL="$SOLANA_RPC_URL" \\
+              -e NEXT_PUBLIC_SOLANA_NETWORK="$NEXT_PUBLIC_SOLANA_NETWORK" \\
+              -e HDB_NODE_ROLE=$NODE_ROLE \\
+              -e HDB_CLUSTER_NODES="http://$PRIMARY_NODE:9925,http://$NODE_HOST:9925" \\
+              registry.digitalocean.com/$DOCR_REGISTRY/pylomarket:latest
+            
+            # Verify container is running
+            echo "🔍 Verifying container status..."
+            sleep 2
+            if docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -q pylomarket-app-prod; then
+              echo "✅ Container is running"
+              docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep pylomarket-app-prod
+            else
+              echo "❌ Container failed to start. Checking logs..."
+              docker logs pylomarket-app-prod --tail=50
+              exit 1
+            fi
             
             # Verify ports are exposed
             echo "🔌 Verifying port exposure..."
-            sleep 2
-            if docker ps --format "table {{.Names}}\t{{.Ports}}" | grep -q "9925:9925.*9926:9926"; then
+            if docker ps --format "{{.Ports}}" | grep -q "9925:9925.*9926:9926"; then
               echo "✅ Ports 9925 and 9926 are exposed correctly"
             else
-              echo "⚠️  Warning: Ports may not be exposed correctly. Checking container status..."
+              echo "⚠️  Warning: Ports may not be exposed correctly"
               docker ps --format "table {{.Names}}\t{{.Ports}}"
             fi
             
@@ -367,7 +312,7 @@ jobs:
             if docker inspect pylomarket-app-prod 2>/dev/null | grep -q "/opt/harperdb/hdb"; then
               echo "✅ Volume is mounted correctly"
             else
-              echo "⚠️  Warning: Volume mount verification failed. Container may still be starting..."
+              echo "⚠️  Warning: Volume mount verification failed"
             fi
             
             sleep 15
@@ -392,8 +337,8 @@ jobs:
             
             if [ "\$HEALTH_CHECK_PASSED" = false ]; then
               echo "❌ Health check failed"
-              docker-compose -f docker-compose.prod.yml ps
-              docker-compose -f docker-compose.prod.yml logs --tail=50
+              docker ps -a | grep pylomarket-app-prod
+              docker logs pylomarket-app-prod --tail=50
               exit 1
             fi
             
