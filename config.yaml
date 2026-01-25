@@ -20,4 +20,4 @@ dataLoader:
 '@harperdb/nextjs':
   package: '@harperdb/nextjs'
   files: '*'  # Match official example pattern
-  prebuilt: false  # Set to true for production after building
+  prebuilt: true  # Set to true for production after building

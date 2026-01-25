@@ -15,74 +15,42 @@ export async function listMarkets(options?: {
   offset?: number;
 }) {
   try {
-    // Debug: Check databases.pylomarket
-    console.log('[DEBUG listMarkets] databases.pylomarket exists:', !!databases.pylomarket);
-    console.log('[DEBUG listMarkets] databases.pylomarket keys:', databases.pylomarket ? Object.keys(databases.pylomarket) : 'N/A');
-    
-    // Debug: Check Market table
-    console.log('[DEBUG listMarkets] Market table exists:', !!Market);
-    console.log('[DEBUG listMarkets] Market type:', typeof Market);
-    
     const { category, resolved, limit = 50, offset = 0 } = options || {};
     
-    const filter: any = {};
-    if (category) filter.category = category;
-    if (resolved !== undefined) filter.resolved = resolved;
-    
-    console.log('[DEBUG listMarkets] Options:', { category, resolved, limit, offset });
-    console.log('[DEBUG listMarkets] Filter:', filter);
-
-    // Debug: Try search without filter first to see if ANY data exists
-    console.log('[DEBUG listMarkets] Trying search without filter...');
-    const allMarketsTest = [];
+    // Search all markets first, then filter in memory
+    // HarperDB's search() may not handle boolean filters correctly
+    const allMarkets = [];
     for await (const market of (Market as any).search({})) {
-      allMarketsTest.push({
-        id: market.id,
-        title: market.title,
-        resolved: market.resolved,
-      });
-    }
-    console.log('[DEBUG listMarkets] Total markets in DB (no filter):', allMarketsTest.length);
-    if (allMarketsTest.length > 0) {
-      console.log('[DEBUG listMarkets] First 3 markets (no filter):', allMarketsTest.slice(0, 3));
-    }
-
-    // Now search with filter
-    console.log('[DEBUG listMarkets] Searching with filter:', filter);
-    const marketsArray = [];
-    for await (const market of Market.search(filter)) {
       // Convert HarperDB object to plain object
-      marketsArray.push({
+      allMarkets.push({
         id: market.id,
         title: market.title,
         description: market.description,
         category: market.category,
         end_date: market.end_date,
-        resolved: market.resolved,
+        resolved: Boolean(market.resolved),
         resolution: market.resolution,
         created_at: market.created_at,
         updated_at: market.updated_at,
       });
     }
     
-    console.log('[DEBUG listMarkets] Markets found with filter:', marketsArray.length);
-    if (marketsArray.length > 0) {
-      console.log('[DEBUG listMarkets] First market (with filter):', {
-        id: marketsArray[0].id,
-        title: marketsArray[0].title,
-        resolved: marketsArray[0].resolved,
-      });
+    // Apply filters in memory
+    let marketsArray = [...allMarkets];
+    if (category) {
+      marketsArray = marketsArray.filter(m => m.category === category);
+    }
+    if (resolved !== undefined) {
+      marketsArray = marketsArray.filter(m => m.resolved === resolved);
     }
     
     const markets = marketsArray
       .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(offset, offset + limit);
     
-    console.log('[DEBUG listMarkets] Returning markets count:', markets.length);
     return { success: true, markets };
   } catch (error: any) {
     console.error('[listMarkets] Error:', error);
-    console.error('[listMarkets] Error stack:', error.stack);
     return { success: false, error: error.message };
   }
 }
