@@ -38,8 +38,10 @@ jobs:
           tags: |
             registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket:latest
           cache-from: type=registry,ref=registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket:buildcache
-          cache-to: type=registry,ref=registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket:buildcache,mode=max
-          outputs: type=image,push=true
+          cache-to: type=registry,ref=registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket:buildcache,mode=min
+          platforms: linux/amd64
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
 
   # Deploy to primary node first (sequential deployment)
   deploy-primary:
