@@ -2,8 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // Output standalone for Docker builds
-  output: "standalone",
-  
+  // output: "standalone",
+  trailingSlash: false,
   // Experimental features
   experimental: {
     serverActions: {
@@ -12,9 +12,7 @@ const nextConfig: NextConfig = {
   },
 
   // Disable ESLint during builds (type checking is enough)
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  eslint: { ignoreDuringBuilds: true },
 
   webpack: (config) => {
     config.externals.push({

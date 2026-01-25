@@ -66,24 +66,23 @@ ssh-copy-id -i ~/.ssh/github_actions_deploy.pub user@your-vps-ip
 
 **Value**: Content of the private key file (starts with `-----BEGIN OPENSSH PRIVATE KEY-----`)
 
-### 5. VPS_HOST
+### 5. VPS_HOST (Optional - for backward compatibility)
 
-**Description**: IP address or domain name of your VPS
+**Description**: IP address or domain name of your VPS (legacy, nodes are now defined in workflow file)
 
-**Example values**:
-- `123.456.789.0` (IP address)
-- `pylomarket.com` (domain name)
-- `vps.example.com` (subdomain)
+**Note**: Node IPs are now defined directly in `.github/workflows/deploy.yml`. This secret is kept for backward compatibility.
 
 ### 6. VPS_USER
 
-**Description**: SSH username for VPS access
+**Description**: SSH username for VPS access (shared across all nodes)
 
 **Common values**:
 - `root`
 - `ubuntu` (for Ubuntu servers)
 - `debian` (for Debian servers)
 - Custom user you created
+
+**Note**: This username is used for all nodes. All nodes should have the same SSH user.
 
 ### 7. VPS_DEPLOY_PATH
 
@@ -98,6 +97,25 @@ ssh-copy-id -i ~/.ssh/github_actions_deploy.pub user@your-vps-ip
 - Be owned by the VPS_USER
 - Have git repository initialized
 - Have write permissions
+
+## Node Configuration
+
+**Node IPs are defined directly in `.github/workflows/deploy.yml`:**
+
+- **Primary Node**: `68.183.184.199` (defined in workflow)
+- **Replica Nodes**: To add, uncomment the `deploy-replicas` job and add nodes to the matrix
+
+**To add more nodes:**
+1. Edit `.github/workflows/deploy.yml`
+2. Uncomment `deploy-replicas` job
+3. Add nodes to the matrix:
+   ```yaml
+   strategy:
+     matrix:
+       node:
+         - { host: "REPLICA_IP_1", role: "replica" }
+         - { host: "REPLICA_IP_2", role: "replica" }
+   ```
 
 ## Optional Secrets (for advanced setup)
 

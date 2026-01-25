@@ -7,6 +7,8 @@
     "start": "harperdb-nextjs start",
     "dev": "harperdb-nextjs dev",
     "build": "harperdb-nextjs build",
+    "docker:build": "docker build -t pylomarket .",
+    "docker:run": "docker run -p 9926:9926 -p 9925:9925 pylomarket-web",
     "login": "node login.js",
     "deploy": "npx -y dotenv-cli -- harperdb deploy . restart=rolling replicated=true",
     "lint": "next lint",

@@ -9,7 +9,15 @@ export default async function Home() {
     offset: 0 
   });
 
+  console.log('[DEBUG page.tsx] listMarkets result:', {
+    success: result.success,
+    marketsCount: result.markets?.length || 0,
+    hasMarkets: !!result.markets && result.markets.length > 0,
+    error: result.error,
+  });
+
   const initialMarkets = result.success && result.markets ? result.markets : [];
+  console.log('[DEBUG page.tsx] initialMarkets count:', initialMarkets.length);
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">

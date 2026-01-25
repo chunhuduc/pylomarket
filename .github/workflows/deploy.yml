@@ -1,5 +1,9 @@
 name: Deploy to Digital Ocean Container Registry
 
+# Node Configuration
+# Define your HarperDB nodes here. Add more nodes as needed.
+# Format: { name: "node1", host: "68.183.184.199", role: "primary" }
+# To add more nodes, add entries to the nodes array below
 on:
   push:
     branches:
@@ -34,7 +38,8 @@ jobs:
             registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket-web:latest
             registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket-web:${{ github.sha }}
 
-  deploy:
+  # Deploy to primary node first (sequential deployment)
+  deploy-primary:
     needs: build-and-push
     runs-on: ubuntu-latest
     
@@ -47,25 +52,24 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
 
-      - name: Add VPS to known hosts
-        run: |
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Deploy to VPS
+      - name: Deploy to Primary Node
         env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-          VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+          NODE_HOST: "68.183.184.199"
+          NODE_USER: ${{ secrets.VPS_USER }}
+          NODE_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
           DOCR_REGISTRY: ${{ secrets.DOCR_REGISTRY_NAME }}
           DOCR_USERNAME: ${{ secrets.DOCR_USERNAME }}
           DOCR_PASSWORD: ${{ secrets.DOCR_PASSWORD }}
-          IMAGE_TAG: ${{ github.sha }}
+          NODE_ROLE: "primary"
         run: |
-          ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST << EOF
+          echo "🚀 Deploying to primary node: $NODE_HOST"
+          ssh-keyscan -H $NODE_HOST >> ~/.ssh/known_hosts
+          
+          ssh -o StrictHostKeyChecking=no $NODE_USER@$NODE_HOST << EOF
             set -e
             
             # Navigate to deployment directory
-            cd $VPS_DEPLOY_PATH || exit 1
+            cd $NODE_DEPLOY_PATH || exit 1
             
             # Login to DOCR
             echo "🔐 Logging in to Digital Ocean Container Registry..."
@@ -85,8 +89,13 @@ jobs:
             # Load environment variables
             export \$(cat .env.production | grep -v '^#' | xargs)
             
-            # Export DOCR registry name for docker-compose
+            # Export DOCR registry name and node role for docker-compose
             export DOCR_REGISTRY_NAME=$DOCR_REGISTRY
+            export HDB_NODE_ROLE=$NODE_ROLE
+            
+            # Build cluster nodes list (for peer-to-peer)
+            # For now, just this node. Add more nodes later: "http://68.183.184.199:9925,http://node2:9925"
+            export HDB_CLUSTER_NODES="http://$NODE_HOST:9925"
             
             # Stop existing containers
             echo "🛑 Stopping existing containers..."
@@ -98,7 +107,7 @@ jobs:
             
             # Start containers (will use image from registry)
             echo "🚀 Starting containers..."
-            DOCR_REGISTRY_NAME=$DOCR_REGISTRY docker-compose -f docker-compose.prod.yml up -d
+            DOCR_REGISTRY_NAME=$DOCR_REGISTRY HDB_NODE_ROLE=$NODE_ROLE HDB_CLUSTER_NODES="http://$NODE_HOST:9925" docker-compose -f docker-compose.prod.yml up -d
             
             # Wait for services to be healthy
             echo "⏳ Waiting for services to be ready..."
@@ -138,12 +147,104 @@ jobs:
             echo "🧹 Cleaning up old Docker images..."
             docker image prune -f
             
-            echo "✅ Deployment completed successfully!"
+            echo "✅ Deployment to primary node completed successfully!"
           EOF
 
-      - name: Deployment Summary
+      - name: Primary Node Deployment Summary
         run: |
-          echo "✅ Deployment to VPS completed successfully!"
-          echo "HarperDB API available at: http://${{ secrets.VPS_HOST }}:9925"
-          echo "Next.js app available at: http://${{ secrets.VPS_HOST }}:9926"
-          echo "Image pushed to: registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket-web:${{ github.sha }}"
+          echo "✅ Deployment to primary node completed successfully!"
+          echo "HarperDB API available at: http://68.183.184.199:9925"
+          echo "Next.js app available at: http://68.183.184.199:9926"
+
+  # Deploy to replica nodes (after primary is deployed)
+  # To add more replica nodes, add entries to the matrix below
+  deploy-replicas:
+    needs: deploy-primary
+    runs-on: ubuntu-latest
+    # For now, no replica nodes. Uncomment and add nodes when ready:
+    # strategy:
+    #   matrix:
+    #     node:
+    #       - { host: "REPLICA_IP_1", role: "replica" }
+    #       - { host: "REPLICA_IP_2", role: "replica" }
+    if: false  # Disabled until replica nodes are added
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Deploy to Replica Node
+        env:
+          NODE_HOST: ${{ matrix.node.host }}
+          NODE_USER: ${{ secrets.VPS_USER }}
+          NODE_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+          DOCR_REGISTRY: ${{ secrets.DOCR_REGISTRY_NAME }}
+          DOCR_USERNAME: ${{ secrets.DOCR_USERNAME }}
+          DOCR_PASSWORD: ${{ secrets.DOCR_PASSWORD }}
+          NODE_ROLE: ${{ matrix.node.role }}
+          PRIMARY_NODE: "68.183.184.199"
+        run: |
+          echo "🚀 Deploying to replica node: $NODE_HOST"
+          ssh-keyscan -H $NODE_HOST >> ~/.ssh/known_hosts
+          
+          ssh -o StrictHostKeyChecking=no $NODE_USER@$NODE_HOST << EOF
+            set -e
+            
+            cd $NODE_DEPLOY_PATH || exit 1
+            
+            echo "$DOCR_PASSWORD" | docker login registry.digitalocean.com -u "$DOCR_USERNAME" --password-stdin
+            
+            git fetch origin main
+            git reset --hard origin/main
+            
+            if [ ! -f .env.production ]; then
+              echo "⚠️  Warning: .env.production not found."
+              exit 1
+            fi
+            
+            export \$(cat .env.production | grep -v '^#' | xargs)
+            export DOCR_REGISTRY_NAME=$DOCR_REGISTRY
+            export HDB_NODE_ROLE=$NODE_ROLE
+            # Include primary and all replicas in cluster nodes list
+            export HDB_CLUSTER_NODES="http://$PRIMARY_NODE:9925,http://$NODE_HOST:9925"
+            
+            docker-compose -f docker-compose.prod.yml down || true
+            docker pull registry.digitalocean.com/$DOCR_REGISTRY/pylomarket-web:latest
+            
+            DOCR_REGISTRY_NAME=$DOCR_REGISTRY HDB_NODE_ROLE=$NODE_ROLE HDB_CLUSTER_NODES="http://$PRIMARY_NODE:9925,http://$NODE_HOST:9925" docker-compose -f docker-compose.prod.yml up -d
+            
+            sleep 15
+            
+            MAX_RETRIES=5
+            RETRY_COUNT=0
+            HEALTH_CHECK_PASSED=false
+            
+            while [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; do
+              if curl -f http://localhost:9925 > /dev/null 2>&1 && curl -f http://localhost:9926/api/health > /dev/null 2>&1; then
+                echo "✅ Health check passed!"
+                HEALTH_CHECK_PASSED=true
+                break
+              fi
+              
+              RETRY_COUNT=\$((RETRY_COUNT + 1))
+              if [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; then
+                echo "⏳ Health check failed, retrying... (\$RETRY_COUNT/\$MAX_RETRIES)"
+                sleep 5
+              fi
+            done
+            
+            if [ "\$HEALTH_CHECK_PASSED" = false ]; then
+              echo "❌ Health check failed"
+              docker-compose -f docker-compose.prod.yml ps
+              docker-compose -f docker-compose.prod.yml logs --tail=50
+              exit 1
+            fi
+            
+            docker image prune -f
+            echo "✅ Deployment to replica node completed successfully!"
+          EOF

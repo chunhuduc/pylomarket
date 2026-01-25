@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState, useEffect } from "react";
 
 interface Market {
   id: string;
@@ -40,12 +43,23 @@ export default function MarketCard({ market }: Props) {
   const noProbability = 50;
   
   // Fake volume data (will be calculated from trades later)
-  const volume = Math.floor(Math.random() * 5000000) + 10000; // $10k - $5m
+  // Use useState + useEffect to generate on client only to avoid hydration mismatch
+  const [volume, setVolume] = useState(0);
+  const [daysUntilEnd, setDaysUntilEnd] = useState(0);
+  const [isNew, setIsNew] = useState(false);
   
-  const isNew = isNewMarket(market.created_at);
-  const daysUntilEnd = Math.ceil(
-    (new Date(market.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-  );
+  useEffect(() => {
+    // Generate random volume only on client
+    setVolume(Math.floor(Math.random() * 5000000) + 10000); // $10k - $5m
+    
+    // Calculate days until end only on client
+    const endDate = new Date(market.end_date).getTime();
+    const now = new Date().getTime();
+    setDaysUntilEnd(Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)));
+    
+    // Check if new only on client
+    setIsNew(isNewMarket(market.created_at));
+  }, [market.end_date, market.created_at]);
 
   return (
     <Link
@@ -96,7 +110,7 @@ export default function MarketCard({ market }: Props) {
       {/* Footer with volume and end date */}
       <div className="flex items-center justify-between text-xs pt-3 border-t border-[#1f1f1f]">
         <span className="text-[#3b82f6] font-semibold">
-          {formatVolume(volume)} Vol.
+          {volume > 0 ? `${formatVolume(volume)} Vol.` : 'Loading...'}
         </span>
         <span className="text-[#6b7280]">
           {daysUntilEnd > 0 ? `${daysUntilEnd}d left` : 'Ending soon'}
