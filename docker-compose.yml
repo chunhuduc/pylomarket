@@ -59,7 +59,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: pylomarket-web
+    container_name: pylomarket
     ports:
       - "3000:3000"  # Next.js app port (if not using builtin)
     environment:

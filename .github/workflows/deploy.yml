@@ -35,8 +35,8 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket-web:latest
-            registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket-web:${{ github.sha }}
+            registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket:latest
+            registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket:${{ github.sha }}
 
   # Deploy to primary node first (sequential deployment)
   deploy-primary:
@@ -103,7 +103,7 @@ jobs:
             
             # Pull latest image from registry
             echo "📥 Pulling latest image from DOCR..."
-            docker pull registry.digitalocean.com/$DOCR_REGISTRY/pylomarket-web:latest
+            docker pull registry.digitalocean.com/$DOCR_REGISTRY/pylomarket:latest
             
             # Start containers (will use image from registry)
             echo "🚀 Starting containers..."
@@ -214,7 +214,7 @@ jobs:
             export HDB_CLUSTER_NODES="http://$PRIMARY_NODE:9925,http://$NODE_HOST:9925"
             
             docker-compose -f docker-compose.prod.yml down || true
-            docker pull registry.digitalocean.com/$DOCR_REGISTRY/pylomarket-web:latest
+            docker pull registry.digitalocean.com/$DOCR_REGISTRY/pylomarket:latest
             
             DOCR_REGISTRY_NAME=$DOCR_REGISTRY HDB_NODE_ROLE=$NODE_ROLE HDB_CLUSTER_NODES="http://$PRIMARY_NODE:9925,http://$NODE_HOST:9925" docker-compose -f docker-compose.prod.yml up -d
             
