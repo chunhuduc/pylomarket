@@ -1,4 +1,4 @@
-name: Deploy to VPS
+name: Deploy to Digital Ocean Container Registry
 
 on:
   push:
@@ -7,7 +7,35 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Digital Ocean Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: registry.digitalocean.com
+          username: ${{ secrets.DOCR_USERNAME }}
+          password: ${{ secrets.DOCR_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket-web:latest
+            registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket-web:${{ github.sha }}
+
   deploy:
+    needs: build-and-push
     runs-on: ubuntu-latest
     
     steps:
@@ -28,14 +56,22 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+          DOCR_REGISTRY: ${{ secrets.DOCR_REGISTRY_NAME }}
+          DOCR_USERNAME: ${{ secrets.DOCR_USERNAME }}
+          DOCR_PASSWORD: ${{ secrets.DOCR_PASSWORD }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST << 'EOF'
+          ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST << EOF
             set -e
             
             # Navigate to deployment directory
             cd $VPS_DEPLOY_PATH || exit 1
             
-            # Pull latest code
+            # Login to DOCR
+            echo "🔐 Logging in to Digital Ocean Container Registry..."
+            echo "$DOCR_PASSWORD" | docker login registry.digitalocean.com -u "$DOCR_USERNAME" --password-stdin
+            
+            # Pull latest code for docker-compose and env files
             echo "📥 Pulling latest code..."
             git fetch origin main
             git reset --hard origin/main
@@ -47,16 +83,22 @@ jobs:
             fi
             
             # Load environment variables
-            export $(cat .env.production | grep -v '^#' | xargs)
+            export \$(cat .env.production | grep -v '^#' | xargs)
+            
+            # Export DOCR registry name for docker-compose
+            export DOCR_REGISTRY_NAME=$DOCR_REGISTRY
             
             # Stop existing containers
             echo "🛑 Stopping existing containers..."
             docker-compose -f docker-compose.prod.yml down || true
             
-            # Build and start containers
-            echo "🔨 Building and starting containers..."
-            docker-compose -f docker-compose.prod.yml build --no-cache
-            docker-compose -f docker-compose.prod.yml up -d
+            # Pull latest image from registry
+            echo "📥 Pulling latest image from DOCR..."
+            docker pull registry.digitalocean.com/$DOCR_REGISTRY/pylomarket-web:latest
+            
+            # Start containers (will use image from registry)
+            echo "🚀 Starting containers..."
+            DOCR_REGISTRY_NAME=$DOCR_REGISTRY docker-compose -f docker-compose.prod.yml up -d
             
             # Wait for services to be healthy
             echo "⏳ Waiting for services to be ready..."
@@ -68,22 +110,22 @@ jobs:
             RETRY_COUNT=0
             HEALTH_CHECK_PASSED=false
             
-            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            while [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; do
               if curl -f http://localhost:3000/api/health > /dev/null 2>&1; then
                 echo "✅ Health check passed!"
                 HEALTH_CHECK_PASSED=true
                 break
               fi
               
-              RETRY_COUNT=$((RETRY_COUNT + 1))
-              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                echo "⏳ Health check failed, retrying... ($RETRY_COUNT/$MAX_RETRIES)"
+              RETRY_COUNT=\$((RETRY_COUNT + 1))
+              if [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; then
+                echo "⏳ Health check failed, retrying... (\$RETRY_COUNT/\$MAX_RETRIES)"
                 sleep 5
               fi
             done
             
-            if [ "$HEALTH_CHECK_PASSED" = false ]; then
-              echo "❌ Health check failed after $MAX_RETRIES attempts"
+            if [ "\$HEALTH_CHECK_PASSED" = false ]; then
+              echo "❌ Health check failed after \$MAX_RETRIES attempts"
               echo "📋 Container status:"
               docker-compose -f docker-compose.prod.yml ps
               echo "📋 Container logs:"
@@ -102,3 +144,4 @@ jobs:
         run: |
           echo "✅ Deployment to VPS completed successfully!"
           echo "Application should be available at: http://${{ secrets.VPS_HOST }}:3000"
+          echo "Image pushed to: registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket-web:${{ github.sha }}"

@@ -30,9 +30,7 @@ services:
       start_period: 40s
 
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: registry.digitalocean.com/${DOCR_REGISTRY_NAME:-pylomarket}/pylomarket-web:latest
     container_name: pylomarket-web-prod
     ports:
       - "3000:3000"

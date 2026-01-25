@@ -6,7 +6,49 @@ This guide explains how to configure GitHub Secrets for CI/CD deployment.
 
 Go to your GitHub repository → Settings → Secrets and variables → Actions → New repository secret
 
-### 1. VPS_SSH_PRIVATE_KEY
+### 1. DOCR_REGISTRY_NAME
+
+**Description**: Name of your Digital Ocean Container Registry
+
+**How to get**:
+1. Go to Digital Ocean → Container Registry
+2. Create a new registry (if you haven't already)
+3. The registry name is shown in the registry URL: `registry.digitalocean.com/<registry-name>`
+
+**Example values**:
+- `pylomarket`
+- `my-registry`
+- `production-registry`
+
+### 2. DOCR_USERNAME
+
+**Description**: Digital Ocean API token username (usually your DO username or token name)
+
+**How to get**:
+1. Go to Digital Ocean → API → Tokens/Keys
+2. Generate a new Personal Access Token with read/write permissions for Container Registry
+3. The username is usually your Digital Ocean account username
+
+**Example values**:
+- Your DO username
+- Token name you created
+
+### 3. DOCR_PASSWORD
+
+**Description**: Digital Ocean API token (Personal Access Token)
+
+**How to generate**:
+1. Go to Digital Ocean → API → Tokens/Keys
+2. Click "Generate New Token"
+3. Give it a name (e.g., "github-actions-docr")
+4. Select "Write" scope for Container Registry
+5. Copy the token immediately (you won't see it again)
+
+**Value**: The generated token (long string)
+
+**Security**: Keep this token secure and never commit it to the repository
+
+### 4. VPS_SSH_PRIVATE_KEY
 
 **Description**: Private SSH key to access your VPS server
 
@@ -24,7 +66,7 @@ ssh-copy-id -i ~/.ssh/github_actions_deploy.pub user@your-vps-ip
 
 **Value**: Content of the private key file (starts with `-----BEGIN OPENSSH PRIVATE KEY-----`)
 
-### 2. VPS_HOST
+### 5. VPS_HOST
 
 **Description**: IP address or domain name of your VPS
 
@@ -33,7 +75,7 @@ ssh-copy-id -i ~/.ssh/github_actions_deploy.pub user@your-vps-ip
 - `pylomarket.com` (domain name)
 - `vps.example.com` (subdomain)
 
-### 3. VPS_USER
+### 6. VPS_USER
 
 **Description**: SSH username for VPS access
 
@@ -43,7 +85,7 @@ ssh-copy-id -i ~/.ssh/github_actions_deploy.pub user@your-vps-ip
 - `debian` (for Debian servers)
 - Custom user you created
 
-### 4. VPS_DEPLOY_PATH
+### 7. VPS_DEPLOY_PATH
 
 **Description**: Path on VPS where the application will be deployed
 
