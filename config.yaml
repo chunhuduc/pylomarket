@@ -20,4 +20,4 @@ dataLoader:
 '@harperdb/nextjs':
   package: '@harperdb/nextjs'
   files: '*'  # Match official example pattern
-  prebuilt: true  # Set to true for production after building
+  prebuilt: false  # Already automatically set to true for production in Dockerfile

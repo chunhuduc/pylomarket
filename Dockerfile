@@ -11,6 +11,9 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Set prebuilt to true for production build
+RUN sed -i 's/prebuilt: false/prebuilt: true/' config.yaml
+
 RUN npm run build
 
 # Expose ports

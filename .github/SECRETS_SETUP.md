@@ -123,7 +123,21 @@ These secrets have default values and are only needed if you want to override th
 - `mainnet-beta`
 - `testnet`
 
-### 10. VPS_HOST (Optional - for backward compatibility)
+### 10. APP_PORT (Optional)
+
+**Description**: External port to map to container's port 9926 (where Next.js app is served)
+
+**Default**: `9926` (if not set)
+
+**Example values**:
+- `9926` (default)
+- `3000`
+- `8080`
+- `80` (if using reverse proxy)
+
+**Note**: This allows you to expose the Next.js app on a different port than the default 9926. The container always runs on port 9926 internally, but you can map it to any external port.
+
+### 11. VPS_HOST (Optional - for backward compatibility)
 
 **Description**: IP address or domain name of your VPS (legacy, nodes are now defined in workflow file)
 
@@ -145,7 +159,7 @@ These secrets have default values and are only needed if you want to override th
 - This username is used for all nodes. All nodes should have the same SSH user.
 - If you're using the default `root` user, you don't need to set this secret.
 
-### 12. VPS_DEPLOY_PATH (Optional - No longer needed)
+### 13. VPS_DEPLOY_PATH (Optional - No longer needed)
 
 **Description**: ~~Path on VPS where the application will be deployed~~ (Deprecated)
 
