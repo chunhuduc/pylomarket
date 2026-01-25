@@ -1,3 +1,5 @@
+'use server';
+
 import { databases } from "harperdb";
 
 const { Market } = databases.pylomarket;
@@ -21,13 +23,23 @@ export async function listMarkets(options?: {
 
     const marketsArray = [];
     for await (const market of Market.search(filter)) {
-      marketsArray.push(market);
+      // Convert HarperDB object to plain object
+      marketsArray.push({
+        id: market.id,
+        title: market.title,
+        description: market.description,
+        category: market.category,
+        end_date: market.end_date,
+        resolved: market.resolved,
+        resolution: market.resolution,
+        created_at: market.created_at,
+        updated_at: market.updated_at,
+      });
     }
     
     const markets = marketsArray
       .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(offset, offset + limit);
-
     return { success: true, markets };
   } catch (error: any) {
     console.error('[listMarkets] Error:', error);

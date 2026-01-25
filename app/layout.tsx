@@ -11,6 +11,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "PyloMarket - Prediction Markets",
   description: "Decentralized prediction markets platform",
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
