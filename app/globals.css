@@ -15,6 +15,7 @@
     --red: #ef4444;
     --accent: #3b82f6;
     --accent-hover: #2563eb;
+    --yellow: #fbbf24;
 }
 
 body {
@@ -93,4 +94,84 @@ body {
 
 .tab-inactive:hover {
   color: var(--text-primary);
+}
+
+/* Circular Progress */
+.circular-progress {
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+/* Category Navigation */
+.category-nav {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.category-nav::-webkit-scrollbar {
+  display: none;
+}
+
+/* Filter Tags */
+.filter-tags {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.filter-tags::-webkit-scrollbar {
+  display: none;
+}
+
+/* Scrollbar Hide Utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Sticky positioning for navigation */
+.sticky-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--background);
+}
+
+/* Scrollbar hide utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Circular progress styles */
+.circular-progress {
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+/* Category navigation styles */
+.category-nav {
+  scroll-behavior: smooth;
+}
+
+/* Filter tag styles */
+.filter-tag {
+  transition: all 0.2s ease;
+}
+
+.filter-tag:hover {
+  transform: scale(1.05);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .category-nav {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }

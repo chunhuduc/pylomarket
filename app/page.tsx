@@ -1,5 +1,8 @@
 import { listMarkets } from "@/actions";
 import InfiniteMarketsList from "@/components/InfiniteMarketsList";
+import Header from "@/components/Header";
+import MainNavigation from "@/components/MainNavigation";
+import FilterTagsWrapper from "@/components/FilterTagsWrapper";
 
 // Force dynamic rendering - don't cache this page
 export const dynamic = 'force-dynamic';
@@ -17,17 +20,11 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
+      <Header />
+      <MainNavigation />
+      <FilterTagsWrapper markets={initialMarkets} />
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-3">
-            Prediction Markets
-          </h1>
-          <p className="text-[#9ca3af] text-lg">
-            Trade on the outcome of future events
-          </p>
-        </div>
-
         {/* Markets list with filters and sort */}
         <InfiniteMarketsList initialMarkets={initialMarkets} />
       </div>

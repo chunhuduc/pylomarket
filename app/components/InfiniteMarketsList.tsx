@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { listMarkets } from "@/actions";
 import MarketCard from "./MarketCard";
-import MarketFilters from "./MarketFilters";
 
 interface Market {
   id: string;
@@ -29,12 +28,28 @@ export default function InfiniteMarketsList({ initialMarkets }: Props) {
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+  const [activeTag, setActiveTag] = useState("All");
   const [sortBy, setSortBy] = useState<SortType>("newest");
   const observerTarget = useRef<HTMLDivElement>(null);
+
+  // Listen for tag changes from FilterTagsWrapper
+  useEffect(() => {
+    const handleTagChange = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      setActiveTag(customEvent.detail);
+    };
+    window.addEventListener('filterTagChange', handleTagChange);
+    return () => window.removeEventListener('filterTagChange', handleTagChange);
+  }, []);
 
   // Filter and sort markets
   const filteredAndSortedMarkets = useMemo(() => {
     let filtered = [...allMarkets];
+
+    // Apply tag filter
+    if (activeTag !== "All") {
+      filtered = filtered.filter((market) => market.category === activeTag);
+    }
 
     // Apply filter
     if (activeFilter === "trending") {
@@ -83,13 +98,13 @@ export default function InfiniteMarketsList({ initialMarkets }: Props) {
     }
 
     return filtered;
-  }, [allMarkets, activeFilter, sortBy]);
+  }, [allMarkets, activeFilter, activeTag, sortBy]);
 
   // Infinite scroll with Intersection Observer
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading && activeFilter === "all") {
+        if (entries[0].isIntersecting && hasMore && !loading && activeFilter === "all" && activeTag === "All") {
           loadMore();
         }
       },
@@ -101,7 +116,7 @@ export default function InfiniteMarketsList({ initialMarkets }: Props) {
     }
 
     return () => observer.disconnect();
-  }, [hasMore, loading, offset, activeFilter]);
+  }, [hasMore, loading, offset, activeFilter, activeTag]);
 
   async function loadMore() {
     setLoading(true);
@@ -131,7 +146,6 @@ export default function InfiniteMarketsList({ initialMarkets }: Props) {
     return (
       <>
         <div className="flex items-center justify-between mb-6">
-          <MarketFilters activeFilter={activeFilter} onFilterChange={setActiveFilter} />
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortType)}
@@ -151,9 +165,8 @@ export default function InfiniteMarketsList({ initialMarkets }: Props) {
 
   return (
     <>
-      {/* Filters and Sort */}
-      <div className="flex items-center justify-between mb-6">
-        <MarketFilters activeFilter={activeFilter} onFilterChange={setActiveFilter} />
+      {/* Sort Dropdown */}
+      <div className="flex items-center justify-end mb-6">
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as SortType)}
@@ -165,7 +178,7 @@ export default function InfiniteMarketsList({ initialMarkets }: Props) {
         </select>
       </div>
 
-      {/* Markets Grid */}
+      {/* Markets Grid - 3 columns */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredAndSortedMarkets.map((market) => (
           <MarketCard key={market.id} market={market} />
@@ -173,7 +186,7 @@ export default function InfiniteMarketsList({ initialMarkets }: Props) {
       </div>
       
       {/* Intersection observer target for infinite scroll */}
-      {activeFilter === "all" && (
+      {(activeFilter === "all" && activeTag === "All") && (
         <div 
           ref={observerTarget} 
           className="h-20 flex items-center justify-center mt-8"

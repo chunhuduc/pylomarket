@@ -1,0 +1,98 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+
+export default function Header() {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  return (
+    <header className="sticky top-0 z-50 bg-[#0a0a0a] border-b border-[#1f1f1f]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 gap-4">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2 flex-shrink-0">
+            <div className="w-8 h-8 bg-[#3b82f6] rounded flex items-center justify-center">
+              <span className="text-white font-bold text-lg">P</span>
+            </div>
+            <span className="text-xl font-bold text-white">PyloMarket</span>
+          </Link>
+
+          {/* Search Bar - Centered */}
+          <div className="flex-1 max-w-2xl mx-4">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search polymarket"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-2 pl-10 bg-[#111111] border border-[#1f1f1f] rounded-lg text-white placeholder-[#6b7280] focus:outline-none focus:border-[#3b82f6] transition-colors"
+              />
+              <svg
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#6b7280]"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </div>
+          </div>
+
+          {/* Right Actions */}
+          <div className="flex items-center gap-4 flex-shrink-0">
+            {/* How it works */}
+            <Link
+              href="/how-it-works"
+              className="hidden md:flex items-center gap-2 text-sm text-[#9ca3af] hover:text-white transition-colors"
+            >
+              <div className="w-2 h-2 bg-[#3b82f6] rounded-full"></div>
+              <span>How it works</span>
+            </Link>
+
+            {/* Log In */}
+            <Link
+              href="/auth/login"
+              className="text-sm font-medium text-[#9ca3af] hover:text-white transition-colors"
+            >
+              Log In
+            </Link>
+
+            {/* Sign Up */}
+            <Link
+              href="/auth/register"
+              className="px-4 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors"
+            >
+              Sign Up
+            </Link>
+
+            {/* Hamburger Menu (Mobile) */}
+            <button
+              className="md:hidden p-2 text-[#9ca3af] hover:text-white transition-colors"
+              aria-label="Menu"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
