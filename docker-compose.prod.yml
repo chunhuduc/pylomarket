@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   app:
-    image: registry.digitalocean.com/${DOCR_REGISTRY_NAME:-pylomarket}/pylomarket-web:latest
+    image: registry.digitalocean.com/${DOCR_REGISTRY_NAME:-pylomarket}/pylomarket:latest
     container_name: pylomarket-app-prod
     ports:
       - "9925:9925" # HarperDB HTTP Operations API and Studio UI

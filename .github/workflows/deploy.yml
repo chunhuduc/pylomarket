@@ -55,18 +55,33 @@ jobs:
       - name: Deploy to Primary Node
         env:
           NODE_HOST: "68.183.184.199"
-          NODE_USER: ${{ secrets.VPS_USER }}
-          NODE_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+          NODE_USER: ${{ secrets.VPS_USER || 'root' }}
+          NODE_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH || '/opt/pylomarket' }}
           DOCR_REGISTRY: ${{ secrets.DOCR_REGISTRY_NAME }}
           DOCR_USERNAME: ${{ secrets.DOCR_USERNAME }}
           DOCR_PASSWORD: ${{ secrets.DOCR_PASSWORD }}
           NODE_ROLE: "primary"
         run: |
+          # Set defaults if not provided
+          NODE_USER=${NODE_USER:-root}
+          NODE_DEPLOY_PATH=${NODE_DEPLOY_PATH:-/opt/pylomarket}
+          
           echo "🚀 Deploying to primary node: $NODE_HOST"
+          echo "👤 Using SSH user: $NODE_USER"
+          echo "📁 Using deploy path: $NODE_DEPLOY_PATH"
           ssh-keyscan -H $NODE_HOST >> ~/.ssh/known_hosts
+          
+          # Copy setup script to VPS
+          echo "📋 Copying Docker setup script to VPS..."
+          scp -o StrictHostKeyChecking=no .github/scripts/setup-docker.sh $NODE_USER@$NODE_HOST:/tmp/setup-docker.sh
           
           ssh -o StrictHostKeyChecking=no $NODE_USER@$NODE_HOST << EOF
             set -e
+            
+            # Run Docker setup script
+            chmod +x /tmp/setup-docker.sh
+            bash /tmp/setup-docker.sh
+            rm /tmp/setup-docker.sh
             
             # Navigate to deployment directory
             cd $NODE_DEPLOY_PATH || exit 1
@@ -97,9 +112,20 @@ jobs:
             # For now, just this node. Add more nodes later: "http://68.183.184.199:9925,http://node2:9925"
             export HDB_CLUSTER_NODES="http://$NODE_HOST:9925"
             
-            # Stop existing containers
+            # Stop existing containers (keep volumes)
             echo "🛑 Stopping existing containers..."
             docker-compose -f docker-compose.prod.yml down || true
+            
+            # Verify/create volume for data persistence
+            echo "💾 Checking data volume..."
+            # Docker Compose creates volumes with project name prefix (default: directory name)
+            # Check for volume with harperdb_data in name
+            if ! docker volume ls | grep -q harperdb_data; then
+              echo "📦 Volume will be created automatically by docker-compose"
+            else
+              echo "✅ Data volume exists"
+              docker volume ls | grep harperdb_data
+            fi
             
             # Pull latest image from registry
             echo "📥 Pulling latest image from DOCR..."
@@ -108,6 +134,24 @@ jobs:
             # Start containers (will use image from registry)
             echo "🚀 Starting containers..."
             DOCR_REGISTRY_NAME=$DOCR_REGISTRY HDB_NODE_ROLE=$NODE_ROLE HDB_CLUSTER_NODES="http://$NODE_HOST:9925" docker-compose -f docker-compose.prod.yml up -d
+            
+            # Verify ports are exposed
+            echo "🔌 Verifying port exposure..."
+            sleep 2
+            if docker ps --format "table {{.Names}}\t{{.Ports}}" | grep -q "9925:9925.*9926:9926"; then
+              echo "✅ Ports 9925 and 9926 are exposed correctly"
+            else
+              echo "⚠️  Warning: Ports may not be exposed correctly. Checking container status..."
+              docker ps --format "table {{.Names}}\t{{.Ports}}"
+            fi
+            
+            # Verify volume is mounted
+            echo "💾 Verifying volume mount..."
+            if docker inspect pylomarket-app-prod 2>/dev/null | grep -q "/opt/harperdb/hdb"; then
+              echo "✅ Volume is mounted correctly"
+            else
+              echo "⚠️  Warning: Volume mount verification failed. Container may still be starting..."
+            fi
             
             # Wait for services to be healthy
             echo "⏳ Waiting for services to be ready..."
@@ -181,19 +225,34 @@ jobs:
       - name: Deploy to Replica Node
         env:
           NODE_HOST: ${{ matrix.node.host }}
-          NODE_USER: ${{ secrets.VPS_USER }}
-          NODE_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+          NODE_USER: ${{ secrets.VPS_USER || 'root' }}
+          NODE_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH || '/opt/pylomarket' }}
           DOCR_REGISTRY: ${{ secrets.DOCR_REGISTRY_NAME }}
           DOCR_USERNAME: ${{ secrets.DOCR_USERNAME }}
           DOCR_PASSWORD: ${{ secrets.DOCR_PASSWORD }}
           NODE_ROLE: ${{ matrix.node.role }}
           PRIMARY_NODE: "68.183.184.199"
         run: |
+          # Set defaults if not provided
+          NODE_USER=${NODE_USER:-root}
+          NODE_DEPLOY_PATH=${NODE_DEPLOY_PATH:-/opt/pylomarket}
+          
           echo "🚀 Deploying to replica node: $NODE_HOST"
+          echo "👤 Using SSH user: $NODE_USER"
+          echo "📁 Using deploy path: $NODE_DEPLOY_PATH"
           ssh-keyscan -H $NODE_HOST >> ~/.ssh/known_hosts
+          
+          # Copy setup script to VPS
+          echo "📋 Copying Docker setup script to VPS..."
+          scp -o StrictHostKeyChecking=no .github/scripts/setup-docker.sh $NODE_USER@$NODE_HOST:/tmp/setup-docker.sh
           
           ssh -o StrictHostKeyChecking=no $NODE_USER@$NODE_HOST << EOF
             set -e
+            
+            # Run Docker setup script
+            chmod +x /tmp/setup-docker.sh
+            bash /tmp/setup-docker.sh
+            rm /tmp/setup-docker.sh
             
             cd $NODE_DEPLOY_PATH || exit 1
             
@@ -213,10 +272,42 @@ jobs:
             # Include primary and all replicas in cluster nodes list
             export HDB_CLUSTER_NODES="http://$PRIMARY_NODE:9925,http://$NODE_HOST:9925"
             
+            # Stop existing containers (keep volumes)
+            echo "🛑 Stopping existing containers..."
             docker-compose -f docker-compose.prod.yml down || true
+            
+            # Verify/create volume for data persistence
+            echo "💾 Checking data volume..."
+            # Docker Compose creates volumes with project name prefix (default: directory name)
+            # Check for volume with harperdb_data in name
+            if ! docker volume ls | grep -q harperdb_data; then
+              echo "📦 Volume will be created automatically by docker-compose"
+            else
+              echo "✅ Data volume exists"
+              docker volume ls | grep harperdb_data
+            fi
+            
             docker pull registry.digitalocean.com/$DOCR_REGISTRY/pylomarket:latest
             
             DOCR_REGISTRY_NAME=$DOCR_REGISTRY HDB_NODE_ROLE=$NODE_ROLE HDB_CLUSTER_NODES="http://$PRIMARY_NODE:9925,http://$NODE_HOST:9925" docker-compose -f docker-compose.prod.yml up -d
+            
+            # Verify ports are exposed
+            echo "🔌 Verifying port exposure..."
+            sleep 2
+            if docker ps --format "table {{.Names}}\t{{.Ports}}" | grep -q "9925:9925.*9926:9926"; then
+              echo "✅ Ports 9925 and 9926 are exposed correctly"
+            else
+              echo "⚠️  Warning: Ports may not be exposed correctly. Checking container status..."
+              docker ps --format "table {{.Names}}\t{{.Ports}}"
+            fi
+            
+            # Verify volume is mounted
+            echo "💾 Verifying volume mount..."
+            if docker inspect pylomarket-app-prod 2>/dev/null | grep -q "/opt/harperdb/hdb"; then
+              echo "✅ Volume is mounted correctly"
+            else
+              echo "⚠️  Warning: Volume mount verification failed. Container may still be starting..."
+            fi
             
             sleep 15
             
