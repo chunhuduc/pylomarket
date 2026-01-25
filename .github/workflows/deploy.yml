@@ -36,7 +36,6 @@ jobs:
           push: true
           tags: |
             registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket:latest
-            # registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket:${{ github.sha }}
 
   # Deploy to primary node first (sequential deployment)
   deploy-primary:
