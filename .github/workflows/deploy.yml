@@ -111,7 +111,8 @@ jobs:
             HEALTH_CHECK_PASSED=false
             
             while [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; do
-              if curl -f http://localhost:3000/api/health > /dev/null 2>&1; then
+              # Check HarperDB API (port 9925) and Next.js app (port 9926)
+              if curl -f http://localhost:9925 > /dev/null 2>&1 && curl -f http://localhost:9926/api/health > /dev/null 2>&1; then
                 echo "✅ Health check passed!"
                 HEALTH_CHECK_PASSED=true
                 break
@@ -143,5 +144,6 @@ jobs:
       - name: Deployment Summary
         run: |
           echo "✅ Deployment to VPS completed successfully!"
-          echo "Application should be available at: http://${{ secrets.VPS_HOST }}:3000"
+          echo "HarperDB API available at: http://${{ secrets.VPS_HOST }}:9925"
+          echo "Next.js app available at: http://${{ secrets.VPS_HOST }}:9926"
           echo "Image pushed to: registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket-web:${{ github.sha }}"
