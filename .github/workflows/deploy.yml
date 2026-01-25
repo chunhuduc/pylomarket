@@ -83,8 +83,32 @@ jobs:
             bash /tmp/setup-docker.sh
             rm /tmp/setup-docker.sh
             
+            # Ensure deployment directory exists
+            echo "📁 Ensuring deployment directory exists..."
+            if [ ! -d "$NODE_DEPLOY_PATH" ]; then
+              echo "📦 Creating deployment directory: $NODE_DEPLOY_PATH"
+              sudo mkdir -p "$NODE_DEPLOY_PATH"
+              sudo chown -R $USER:$USER "$NODE_DEPLOY_PATH"
+            else
+              echo "✅ Deployment directory exists: $NODE_DEPLOY_PATH"
+            fi
+            
             # Navigate to deployment directory
-            cd $NODE_DEPLOY_PATH || exit 1
+            cd "$NODE_DEPLOY_PATH" || exit 1
+            
+            # Initialize git repository if not already initialized
+            if [ ! -d .git ]; then
+              echo "📦 Initializing git repository..."
+              git init
+              # Note: You may need to set the git remote manually if this is the first deployment
+              # git remote add origin https://github.com/your-username/pylomarket.git
+            fi
+            
+            # Ensure git remote is set (if not, try to add it from current repo)
+            if ! git remote get-url origin &>/dev/null; then
+              echo "⚠️  Git remote not set. Attempting to detect from current directory..."
+              # This will be handled by git fetch below if remote doesn't exist
+            fi
             
             # Login to DOCR
             echo "🔐 Logging in to Digital Ocean Container Registry..."
@@ -92,8 +116,13 @@ jobs:
             
             # Pull latest code for docker-compose and env files
             echo "📥 Pulling latest code..."
-            git fetch origin main
-            git reset --hard origin/main
+            if git remote get-url origin &>/dev/null; then
+              git fetch origin main || echo "⚠️  Git fetch failed, continuing..."
+              git reset --hard origin/main || echo "⚠️  Git reset failed, continuing..."
+            else
+              echo "⚠️  Git remote not configured. Skipping git pull."
+              echo "💡 Please set git remote manually: git remote add origin <repo-url>"
+            fi
             
             # Check if .env.production exists
             if [ ! -f .env.production ]; then
@@ -254,12 +283,44 @@ jobs:
             bash /tmp/setup-docker.sh
             rm /tmp/setup-docker.sh
             
-            cd $NODE_DEPLOY_PATH || exit 1
+            # Ensure deployment directory exists
+            echo "📁 Ensuring deployment directory exists..."
+            if [ ! -d "$NODE_DEPLOY_PATH" ]; then
+              echo "📦 Creating deployment directory: $NODE_DEPLOY_PATH"
+              sudo mkdir -p "$NODE_DEPLOY_PATH"
+              sudo chown -R $USER:$USER "$NODE_DEPLOY_PATH"
+            else
+              echo "✅ Deployment directory exists: $NODE_DEPLOY_PATH"
+            fi
+            
+            # Navigate to deployment directory
+            cd "$NODE_DEPLOY_PATH" || exit 1
+            
+            # Initialize git repository if not already initialized
+            if [ ! -d .git ]; then
+              echo "📦 Initializing git repository..."
+              git init
+              # Note: You may need to set the git remote manually if this is the first deployment
+              # git remote add origin https://github.com/your-username/pylomarket.git
+            fi
+            
+            # Ensure git remote is set (if not, try to add it from current repo)
+            if ! git remote get-url origin &>/dev/null; then
+              echo "⚠️  Git remote not set. Attempting to detect from current directory..."
+              # This will be handled by git fetch below if remote doesn't exist
+            fi
             
             echo "$DOCR_PASSWORD" | docker login registry.digitalocean.com -u "$DOCR_USERNAME" --password-stdin
             
-            git fetch origin main
-            git reset --hard origin/main
+            # Pull latest code
+            echo "📥 Pulling latest code..."
+            if git remote get-url origin &>/dev/null; then
+              git fetch origin main || echo "⚠️  Git fetch failed, continuing..."
+              git reset --hard origin/main || echo "⚠️  Git reset failed, continuing..."
+            else
+              echo "⚠️  Git remote not configured. Skipping git pull."
+              echo "💡 Please set git remote manually: git remote add origin <repo-url>"
+            fi
             
             if [ ! -f .env.production ]; then
               echo "⚠️  Warning: .env.production not found."
