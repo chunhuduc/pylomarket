@@ -19,7 +19,7 @@ export default async function Home() {
   const initialMarkets = result.success && result.markets ? result.markets : [];
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
+    <div className="min-h-screen bg-[#0D1117]">
       <Header />
       <MainNavigation />
       {/* FilterTags temporarily disabled due to see-through issue */}

@@ -1,16 +1,16 @@
 @import "tailwindcss";
 
 :root {
-    --background: #0a0a0a;
+    --background: #0D1117;
     --foreground: #ededed;
     
-    /* Polymarket color palette */
-    --card-bg: #111111;
-    --border: #1f1f1f;
-    --border-hover: #2a2a2a;
+    /* Polymarket color palette - blue-grey tones */
+    --card-bg: #161B22;
+    --border: #30363D;
+    --border-hover: #3C434A;
     --text-primary: #ffffff;
-    --text-secondary: #9ca3af;
-    --text-muted: #6b7280;
+    --text-secondary: #C9D1D9;
+    --text-muted: #8B949E;
     --green: #10b981;
     --red: #ef4444;
     --accent: #3b82f6;

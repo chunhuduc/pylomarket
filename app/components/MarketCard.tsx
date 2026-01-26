@@ -72,7 +72,7 @@ function CircularProgress({ percentage }: { percentage: number }) {
           stroke="currentColor"
           strokeWidth="4"
           fill="none"
-          className="text-[#1f1f1f]"
+          className="text-[#21262D]"
         />
         <circle
           cx="32"
@@ -137,22 +137,22 @@ export default function MarketCard({ market }: Props) {
   return (
     <Link
       href={`/markets/${market.id}`}
-      className="block p-5 bg-[#111111] border border-[#1f1f1f] rounded-lg card-hover relative"
+      className="block p-5 bg-[#161B22] border border-[#30363D] rounded-lg card-hover relative"
     >
       {/* NEW Badge - Top Right */}
       {isNew && (
-        <span className="absolute top-3 right-3 px-2 py-0.5 bg-[#fbbf24] text-[#0a0a0a] text-xs font-bold rounded">
+        <span className="absolute top-3 right-3 px-2 py-0.5 bg-[#fbbf24] text-[#0D1117] text-xs font-bold rounded">
           NEW
         </span>
       )}
 
       {/* Category Icon and Title */}
       <div className="flex items-start gap-3 mb-4">
-        <div className="w-12 h-12 bg-[#1f1f1f] rounded-lg flex items-center justify-center text-2xl flex-shrink-0">
+        <div className="w-12 h-12 bg-[#21262D] rounded-lg flex items-center justify-center text-2xl flex-shrink-0">
           {getCategoryIcon(market.category)}
         </div>
         <div className="flex-1 min-w-0">
-          <span className="inline-block px-2 py-1 bg-[#1f1f1f] text-[#9ca3af] text-xs font-medium rounded-md uppercase tracking-wide mb-2">
+          <span className="inline-block px-2 py-1 bg-[#21262D] text-[#8B949E] text-xs font-medium rounded-md uppercase tracking-wide mb-2">
             {market.category}
           </span>
           <h3 className="text-base font-semibold text-white line-clamp-2 leading-snug">
@@ -166,7 +166,7 @@ export default function MarketCard({ market }: Props) {
         {/* Circular Progress */}
         <div className="flex items-center gap-2">
           <CircularProgress percentage={yesProbability} />
-          <span className="text-xs text-[#9ca3af]">chance</span>
+          <span className="text-xs text-[#8B949E]">chance</span>
         </div>
 
         {/* Yes/No Buttons */}
@@ -193,12 +193,12 @@ export default function MarketCard({ market }: Props) {
       </div>
 
       {/* Footer with Volume, Timeframe, and Action Icons */}
-      <div className="flex items-center justify-between text-xs pt-3 border-t border-[#1f1f1f]">
+      <div className="flex items-center justify-between text-xs pt-3 border-t border-[#30363D]">
         <div className="flex items-center gap-4">
           <span className="text-[#3b82f6] font-semibold">
             {volume > 0 ? `${formatVolume(volume)} Vol.` : "Loading..."}
           </span>
-          <span className="text-[#6b7280]">{timeframe || "Loading..."}</span>
+          <span className="text-[#8B949E]">{timeframe || "Loading..."}</span>
         </div>
 
         {/* Action Icons */}
@@ -208,7 +208,7 @@ export default function MarketCard({ market }: Props) {
               e.preventDefault();
               // Handle gift/share
             }}
-            className="p-1.5 text-[#6b7280] hover:text-[#3b82f6] transition-colors"
+            className="p-1.5 text-[#8B949E] hover:text-[#3b82f6] transition-colors"
             aria-label="Share"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -225,7 +225,7 @@ export default function MarketCard({ market }: Props) {
               e.preventDefault();
               // Handle bookmark
             }}
-            className="p-1.5 text-[#6b7280] hover:text-[#3b82f6] transition-colors"
+            className="p-1.5 text-[#8B949E] hover:text-[#3b82f6] transition-colors"
             aria-label="Bookmark"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

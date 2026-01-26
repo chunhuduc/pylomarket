@@ -16,7 +16,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 bg-[#0a0a0a] border-b border-[#1f1f1f]">
+      <header className="sticky top-0 z-50 bg-[#0D1117] border-b border-[#30363D]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 gap-4">
             {/* Logo */}
@@ -35,10 +35,10 @@ export default function Header() {
                   placeholder="Search polymarket"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-4 py-2 pl-10 bg-[#111111] border border-[#1f1f1f] rounded-lg text-white placeholder-[#6b7280] focus:outline-none focus:border-[#3b82f6] transition-colors"
+                  className="w-full px-4 py-2 pl-10 bg-[#161B22] border border-[#30363D] rounded-lg text-white placeholder-[#8B949E] focus:outline-none focus:border-[#3b82f6] transition-colors"
                 />
                 <svg
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#6b7280]"
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#9ca3af]"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -58,7 +58,7 @@ export default function Header() {
               {/* How it works */}
               <Link
                 href="/how-it-works"
-                className="hidden md:flex items-center gap-2 text-sm text-[#9ca3af] hover:text-white transition-colors"
+                className="hidden md:flex items-center gap-2 text-sm text-[#C9D1D9] hover:text-white transition-colors"
               >
                 <div className="w-2 h-2 bg-[#3b82f6] rounded-full"></div>
                 <span>How it works</span>
@@ -67,7 +67,7 @@ export default function Header() {
               {/* Log In */}
               <button
                 onClick={() => openAuthModal("login")}
-                className="text-sm font-medium text-[#9ca3af] hover:text-white transition-colors whitespace-nowrap"
+                className="text-sm font-medium text-[#C9D1D9] hover:text-white transition-colors whitespace-nowrap"
               >
                 Log In
               </button>

@@ -84,17 +84,17 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
       onClick={onClose}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
       {/* Modal */}
       <div
-        className="relative w-full max-w-md bg-[#0a0a0a] border border-[#1f1f1f] rounded-lg shadow-2xl"
+        className="relative w-full max-w-md bg-[#161B22] border border-[#30363D] rounded-lg shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-[#9ca3af] hover:text-white transition-colors"
+          className="absolute top-4 right-4 p-2 text-[#C9D1D9] hover:text-white transition-colors"
           aria-label="Close"
         >
           <svg
@@ -120,7 +120,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
 
           {/* Error Message */}
           {error && (
-            <div className="mb-4 p-3 bg-red-900/20 border border-red-700/50 rounded-lg text-sm text-red-400">
+            <div className="mb-4 p-3 bg-red-900/30 border border-red-700/60 rounded-lg text-sm text-red-300">
               {error}
             </div>
           )}
@@ -128,7 +128,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
           {/* Google Sign In Button */}
           <button
             onClick={handleGoogleSignIn}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors mb-4"
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-50 transition-colors mb-4"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -154,17 +154,17 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
           {/* OR Separator */}
           <div className="relative flex items-center justify-center my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-[#1f1f1f]"></div>
+              <div className="w-full border-t border-[#2a2a2a]"></div>
             </div>
-            <div className="relative bg-[#0a0a0a] px-4">
-              <span className="text-sm text-[#6b7280]">OR</span>
+            <div className="relative bg-[#161B22] px-4">
+              <span className="text-sm text-[#8B949E]">OR</span>
             </div>
           </div>
 
           {/* Email Input */}
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-[#9ca3af] mb-2">
+              <label className="block text-sm font-medium text-[#C9D1D9] mb-2">
                 Email address
               </label>
               <div className="flex gap-2">
@@ -178,7 +178,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                       handleEmailContinue();
                     }
                   }}
-                  className="flex-1 px-4 py-3 bg-[#111111] border border-[#1f1f1f] rounded-lg text-white placeholder-[#6b7280] focus:outline-none focus:border-[#3b82f6] transition-colors"
+                  className="flex-1 px-4 py-3 bg-[#0D1117] border border-[#30363D] rounded-lg text-white placeholder-[#8B949E] focus:outline-none focus:border-[#3b82f6] transition-colors"
                 />
                 <button
                   onClick={handleEmailContinue}
@@ -192,7 +192,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
           </div>
 
           {/* Terms and Privacy */}
-          <div className="mt-6 flex items-center justify-center gap-4 text-xs text-[#6b7280]">
+          <div className="mt-6 flex items-center justify-center gap-4 text-xs text-[#8B949E]">
             <a
               href="/terms"
               className="hover:text-white transition-colors"

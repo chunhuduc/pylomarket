@@ -25,7 +25,7 @@ export default function MainNavigation() {
   const [activeCategory, setActiveCategory] = useState("Trending");
 
   return (
-    <nav className="bg-[#0a0a0a] border-b border-[#1f1f1f] sticky top-16 z-40">
+    <nav className="bg-[#0D1117] border-b border-[#30363D] sticky top-16 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center overflow-x-auto scrollbar-hide">
           <div className="flex items-center gap-1 min-w-max">
@@ -36,7 +36,7 @@ export default function MainNavigation() {
                 className={`px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors relative ${
                   activeCategory === category
                     ? "text-white"
-                    : "text-[#9ca3af] hover:text-white"
+                    : "text-[#C9D1D9] hover:text-white"
                 }`}
               >
                 {category}
