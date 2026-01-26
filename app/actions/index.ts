@@ -7,7 +7,7 @@
  */
 
 // Auth actions
-export { registerUser, loginUser, verifyToken } from './auth';
+export { registerUser, loginUser, verifyToken, sendVerificationCode, verifyEmailCode } from './auth';
 
 // Wallet actions
 export { getWallet, getBalance, updateBalance, getTransactions } from './wallet';

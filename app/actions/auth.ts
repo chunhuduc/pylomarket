@@ -8,6 +8,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { databases } from "harperdb";
+import { generateOTP, setOTP, getOTP, deleteOTP } from './otp-store';
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
 
@@ -120,5 +121,80 @@ export async function verifyToken(token: string) {
     return { success: true, user: decoded };
   } catch (error: any) {
     return { success: false, error: "Invalid token" };
+  }
+}
+
+/**
+ * OTP Verification Server Actions
+ * For email verification flow
+ */
+
+export async function sendVerificationCode(email: string) {
+  try {
+    if (!email) {
+      return { success: false, error: "Email is required" };
+    }
+
+    // Generate OTP
+    const code = generateOTP();
+
+    // Store OTP (expires in 10 minutes)
+    setOTP(email, code, 10);
+
+    // In production, send email here using a service like SendGrid, AWS SES, etc.
+    // For now, log it to console (remove in production)
+    console.log(`[DEV] Verification code for ${email}: ${code}`);
+
+    // TODO: Send email with OTP
+    // await sendEmail({
+    //   to: email,
+    //   subject: "PyloMarket Verification Code",
+    //   html: `Your verification code is: <strong>${code}</strong>`
+    // });
+
+    return {
+      success: true,
+      message: "Verification code sent to your email",
+    };
+  } catch (error: any) {
+    return { success: false, error: "Failed to send verification code" };
+  }
+}
+
+export async function verifyEmailCode(email: string, code: string) {
+  try {
+    if (!email || !code) {
+      return { success: false, error: "Email and code are required" };
+    }
+
+    // Get stored OTP
+    const storedCode = getOTP(email);
+
+    if (!storedCode) {
+      return {
+        success: false,
+        error: "Verification code expired or not found. Please request a new code.",
+      };
+    }
+
+    // Verify code
+    if (storedCode !== code) {
+      return { success: false, error: "Invalid verification code" };
+    }
+
+    // Code is valid, delete it
+    deleteOTP(email);
+
+    // In production, you might want to:
+    // 1. Mark email as verified in database
+    // 2. Create a session/token for verified email
+    // 3. Store verification status temporarily
+
+    return {
+      success: true,
+      message: "Email verified successfully",
+    };
+  } catch (error: any) {
+    return { success: false, error: "Failed to verify email" };
   }
 }

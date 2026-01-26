@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import EmailVerificationModal from "./EmailVerificationModal";
+import { sendVerificationCode } from "@/actions";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -14,12 +16,14 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showVerification, setShowVerification] = useState(false);
 
   // Reset form when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
       setEmail("");
       setError("");
+      setShowVerification(false);
     }
   }, [isOpen]);
 
@@ -61,14 +65,15 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
     setError("");
 
     try {
-      // For now, redirect to login/register page with email pre-filled
-      // In the future, this could be a magic link or OTP flow
-      if (mode === "login") {
-        router.push(`/auth/login?email=${encodeURIComponent(email)}`);
+      // Send verification code using Server Action
+      const result = await sendVerificationCode(email);
+
+      if (result.success) {
+        // Show verification modal
+        setShowVerification(true);
       } else {
-        router.push(`/auth/register?email=${encodeURIComponent(email)}`);
+        setError(result.error || "Failed to send verification code");
       }
-      onClose();
     } catch (error) {
       setError("An error occurred. Please try again.");
     } finally {
@@ -76,21 +81,32 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
     }
   }
 
+  function handleEmailVerified() {
+    // After email is verified, redirect to register/login page
+    if (mode === "login") {
+      router.push(`/auth/login?email=${encodeURIComponent(email)}&verified=true`);
+    } else {
+      router.push(`/auth/register?email=${encodeURIComponent(email)}&verified=true`);
+    }
+    onClose();
+  }
+
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-
-      {/* Modal */}
+    <>
       <div
-        className="relative w-full max-w-md bg-[#161B22] border border-[#30363D] rounded-lg shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+        onClick={onClose}
       >
+        {/* Backdrop */}
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+
+        {/* Modal */}
+        <div
+          className="relative w-full max-w-md bg-[#161B22] border border-[#30363D] rounded-lg shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -217,6 +233,15 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+
+      {/* Email Verification Modal */}
+      <EmailVerificationModal
+        isOpen={showVerification}
+        onClose={() => setShowVerification(false)}
+        email={email}
+        onVerified={handleEmailVerified}
+      />
+    </>
   );
 }
