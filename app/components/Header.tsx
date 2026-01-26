@@ -18,9 +18,9 @@ export default function Header() {
             <span className="text-xl font-bold text-white">PyloMarket</span>
           </Link>
 
-          {/* Search Bar - Centered */}
-          <div className="flex-1 max-w-2xl mx-4">
-            <div className="relative">
+          {/* Search Bar - Centered - Hidden on mobile */}
+          <div className="hidden md:flex flex-1 max-w-2xl mx-4">
+            <div className="relative w-full">
               <input
                 type="text"
                 placeholder="Search polymarket"
@@ -45,7 +45,7 @@ export default function Header() {
           </div>
 
           {/* Right Actions */}
-          <div className="flex items-center gap-4 flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0 ml-auto">
             {/* How it works */}
             <Link
               href="/how-it-works"
@@ -58,7 +58,7 @@ export default function Header() {
             {/* Log In */}
             <Link
               href="/auth/login"
-              className="text-sm font-medium text-[#9ca3af] hover:text-white transition-colors"
+              className="text-sm font-medium text-[#9ca3af] hover:text-white transition-colors whitespace-nowrap"
             >
               Log In
             </Link>
@@ -66,30 +66,12 @@ export default function Header() {
             {/* Sign Up */}
             <Link
               href="/auth/register"
-              className="px-4 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors"
+              className="px-3 sm:px-4 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors whitespace-nowrap"
             >
               Sign Up
             </Link>
 
-            {/* Hamburger Menu (Mobile) */}
-            <button
-              className="md:hidden p-2 text-[#9ca3af] hover:text-white transition-colors"
-              aria-label="Menu"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-            </button>
+            {/* Hamburger Menu - Hidden on mobile, removed */}
           </div>
         </div>
       </div>
