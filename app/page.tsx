@@ -22,7 +22,8 @@ export default async function Home() {
     <div className="min-h-screen bg-[#0a0a0a]">
       <Header />
       <MainNavigation />
-      <FilterTagsWrapper markets={initialMarkets} />
+      {/* FilterTags temporarily disabled due to see-through issue */}
+      {/* <FilterTagsWrapper markets={initialMarkets} /> */}
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Markets list with filters and sort */}
