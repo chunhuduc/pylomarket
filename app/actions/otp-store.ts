@@ -38,7 +38,8 @@ export function deleteOTP(email: string): void {
 // Cleanup expired OTPs
 export function cleanupExpiredOTPs(): void {
   const now = Date.now();
-  for (const [email, data] of otpStore.entries()) {
+  const entries = Array.from(otpStore.entries());
+  for (const [email, data] of entries) {
     if (data.expiresAt < now) {
       otpStore.delete(email);
     }

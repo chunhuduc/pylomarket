@@ -177,6 +177,14 @@ NEXT_PUBLIC_SOLANA_NETWORK=devnet
 # HarperDB (optional, defaults in config.yaml)
 HARPERDB_USERNAME=HDB_ADMIN
 HARPERDB_PASSWORD=password
+
+# SMTP Email Configuration (optional - if not set, emails will be logged to console)
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false  # true for 465, false for 587/25
+SMTP_USER=your-email@example.com
+SMTP_PASS=your-smtp-password
+SMTP_FROM=noreply@pylomarket.com  # Optional, defaults to SMTP_USER
 ```
 
 ### HarperDB Config (`config.yaml`)

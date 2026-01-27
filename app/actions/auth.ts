@@ -5,10 +5,11 @@
  * Replaces AuthResource from resources.js
  */
 
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import * as bcrypt from 'bcryptjs';
+import * as jwt from 'jsonwebtoken';
 import { databases } from "harperdb";
 import { generateOTP, setOTP, getOTP, deleteOTP } from './otp-store';
+import { sendEmail, generateOTPEmailTemplate } from '../lib/email';
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
 
@@ -138,19 +139,18 @@ export async function sendVerificationCode(email: string) {
     // Generate OTP
     const code = generateOTP();
 
-    // Store OTP (expires in 10 minutes)
-    setOTP(email, code, 10);
+    // Store OTP (expires in 20 minutes to match email template)
+    setOTP(email, code, 20);
 
-    // In production, send email here using a service like SendGrid, AWS SES, etc.
-    // For now, log it to console (remove in production)
-    console.log(`[DEV] Verification code for ${email}: ${code}`);
+    // Generate email template (Polymarket style)
+    const emailHtml = generateOTPEmailTemplate(code, 20);
 
-    // TODO: Send email with OTP
-    // await sendEmail({
-    //   to: email,
-    //   subject: "PyloMarket Verification Code",
-    //   html: `Your verification code is: <strong>${code}</strong>`
-    // });
+    // Send email with OTP
+    await sendEmail({
+      to: email,
+      subject: "PyloMarket Login Code",
+      html: emailHtml,
+    });
 
     return {
       success: true,

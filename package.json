@@ -27,6 +27,7 @@
     "harperdb": "^4.7.7",
     "jsonwebtoken": "^9.0.3",
     "next": "^15.4.5",
+    "nodemailer": "^6.10.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -35,6 +36,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
+    "@types/nodemailer": "^6.4.22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
