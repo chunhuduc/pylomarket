@@ -159,7 +159,7 @@ export default function EmailVerificationModal({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4"
       onClick={onClose}
     >
       {/* Backdrop */}
@@ -167,13 +167,13 @@ export default function EmailVerificationModal({
 
       {/* Modal */}
       <div
-        className="relative w-full max-w-md bg-white rounded-lg shadow-2xl"
+        className="relative w-full max-w-md bg-white rounded-lg shadow-2xl mx-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 transition-colors"
+          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 transition-colors z-10"
           aria-label="Close"
         >
           <svg
@@ -191,7 +191,7 @@ export default function EmailVerificationModal({
           </svg>
         </button>
 
-        <div className="p-8">
+        <div className="p-4 sm:p-6 md:p-8">
           {/* Email Icon */}
           <div className="flex justify-center mb-6">
             <div className="w-16 h-16 bg-[#3b82f6] rounded-full flex items-center justify-center">
@@ -225,7 +225,7 @@ export default function EmailVerificationModal({
           )}
 
           {/* Code Input Fields */}
-          <div className="flex justify-center gap-2 mb-6">
+          <div className="flex justify-center gap-1.5 sm:gap-2 mb-6 px-2">
             {code.map((digit, index) => (
               <input
                 key={index}
@@ -236,7 +236,7 @@ export default function EmailVerificationModal({
                 value={digit}
                 onChange={(e) => handleCodeChange(index, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(index, e)}
-                className={`w-12 h-14 text-center text-2xl font-semibold border-2 rounded-lg focus:outline-none transition-colors ${
+                className={`w-10 h-12 sm:w-12 sm:h-14 text-center text-xl sm:text-2xl font-semibold border-2 rounded-lg focus:outline-none transition-colors ${
                   index === 0 && digit === ""
                     ? "border-[#3b82f6]"
                     : digit

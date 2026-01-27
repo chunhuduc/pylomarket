@@ -96,7 +96,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
   return (
     <>
       <div
-        className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+        className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4"
         onClick={onClose}
       >
         {/* Backdrop */}
@@ -104,13 +104,13 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
 
         {/* Modal */}
         <div
-          className="relative w-full max-w-md bg-[#161B22] border border-[#30363D] rounded-lg shadow-2xl"
+          className="relative w-full max-w-md bg-[#161B22] border border-[#30363D] rounded-lg shadow-2xl mx-auto"
           onClick={(e) => e.stopPropagation()}
         >
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-[#C9D1D9] hover:text-white transition-colors"
+          className="absolute top-4 right-4 p-2 text-[#C9D1D9] hover:text-white transition-colors z-10"
           aria-label="Close"
         >
           <svg
@@ -128,9 +128,9 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
           </svg>
         </button>
 
-        <div className="p-8">
+        <div className="p-4 sm:p-6 md:p-8">
           {/* Title */}
-          <h2 className="text-2xl font-bold text-white mb-6 text-center">
+          <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6 text-center">
             Welcome to PyloMarket
           </h2>
 
@@ -183,7 +183,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
               <label className="block text-sm font-medium text-[#C9D1D9] mb-2">
                 Email address
               </label>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="email"
                   placeholder="Email address"
@@ -194,12 +194,12 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
                       handleEmailContinue();
                     }
                   }}
-                  className="flex-1 px-4 py-3 bg-[#0D1117] border border-[#30363D] rounded-lg text-white placeholder-[#8B949E] focus:outline-none focus:border-[#3b82f6] transition-colors"
+                  className="flex-1 min-w-0 px-4 py-3 bg-[#0D1117] border border-[#30363D] rounded-lg text-white placeholder-[#8B949E] focus:outline-none focus:border-[#3b82f6] transition-colors"
                 />
                 <button
                   onClick={handleEmailContinue}
                   disabled={loading}
-                  className="px-6 py-3 bg-[#3b82f6] text-white font-medium rounded-lg hover:bg-[#2563eb] transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  className="w-full sm:w-auto px-6 py-3 bg-[#3b82f6] text-white font-medium rounded-lg hover:bg-[#2563eb] transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                 >
                   {loading ? "..." : "Continue"}
                 </button>
