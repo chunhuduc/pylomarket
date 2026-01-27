@@ -7,10 +7,8 @@ import AuthModal from "./AuthModal";
 export default function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
 
-  const openAuthModal = (mode: "login" | "signup") => {
-    setAuthMode(mode);
+  const openAuthModal = () => {
     setAuthModalOpen(true);
   };
 
@@ -66,7 +64,7 @@ export default function Header() {
 
               {/* Log In */}
               <button
-                onClick={() => openAuthModal("login")}
+                onClick={openAuthModal}
                 className="text-sm font-medium text-[#C9D1D9] hover:text-white transition-colors whitespace-nowrap"
               >
                 Log In
@@ -74,7 +72,7 @@ export default function Header() {
 
               {/* Sign Up */}
               <button
-                onClick={() => openAuthModal("signup")}
+                onClick={openAuthModal}
                 className="px-3 sm:px-4 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors whitespace-nowrap"
               >
                 Sign Up
@@ -88,7 +86,6 @@ export default function Header() {
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
-        mode={authMode}
       />
     </>
   );

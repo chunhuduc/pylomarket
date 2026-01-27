@@ -8,10 +8,9 @@ import { sendVerificationCode } from "@/actions";
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  mode: "login" | "signup";
 }
 
-export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
+export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -81,14 +80,17 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
     }
   }
 
-  function handleEmailVerified() {
-    // After email is verified, redirect to register/login page
-    if (mode === "login") {
-      router.push(`/auth/login?email=${encodeURIComponent(email)}&verified=true`);
-    } else {
-      router.push(`/auth/register?email=${encodeURIComponent(email)}&verified=true`);
+  function handleEmailVerified(token: string, user: { id: string; email: string; username: string }) {
+    // Save token and user to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
     }
+    
+    // Close modal and redirect to home
     onClose();
+    router.push("/");
+    router.refresh(); // Refresh to update auth state
   }
 
   if (!isOpen) return null;

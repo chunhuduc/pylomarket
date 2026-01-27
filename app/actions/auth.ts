@@ -161,6 +161,10 @@ export async function sendVerificationCode(email: string) {
   }
 }
 
+/**
+ * Verify OTP and automatically create/login user
+ * This handles both registration and login flow
+ */
 export async function verifyEmailCode(email: string, code: string) {
   try {
     if (!email || !code) {
@@ -185,14 +189,73 @@ export async function verifyEmailCode(email: string, code: string) {
     // Code is valid, delete it
     deleteOTP(email);
 
-    // In production, you might want to:
-    // 1. Mark email as verified in database
-    // 2. Create a session/token for verified email
-    // 3. Store verification status temporarily
+    // Check if user exists
+    const filter: any = { email };
+    const usersArray = [];
+    for await (const user of User.search(filter)) {
+      usersArray.push(user);
+    }
+
+    let userId: string;
+    let username: string;
+
+    if (usersArray.length === 0) {
+      // User doesn't exist, create new account
+      userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      // Generate username from email (before @)
+      username = email.split('@')[0] || `user_${Date.now()}`;
+      
+      // Create user without password (OTP-based auth)
+      const userData = {
+        id: userId,
+        email,
+        username,
+        password_hash: '', // No password for OTP-based auth
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      await (User as any).create(userData);
+
+      // Create wallet and balance
+      const walletId = `wallet_${userId}`;
+      await (Wallet as any).create({
+        id: walletId,
+        user_id: userId,
+        solana_address: "",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      await (Balance as any).create({
+        id: `balance_${userId}`,
+        user_id: userId,
+        balance: 0,
+        currency: "USD",
+        updated_at: new Date().toISOString(),
+      });
+    } else {
+      // User exists, use existing data
+      userId = usersArray[0].id;
+      username = usersArray[0].username;
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId, email },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
     return {
       success: true,
       message: "Email verified successfully",
+      token,
+      user: {
+        id: userId,
+        email,
+        username,
+      },
     };
   } catch (error: any) {
     return { success: false, error: "Failed to verify email" };

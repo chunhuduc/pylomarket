@@ -7,7 +7,7 @@ interface EmailVerificationModalProps {
   isOpen: boolean;
   onClose: () => void;
   email: string;
-  onVerified: () => void;
+  onVerified: (token: string, user: { id: string; email: string; username: string }) => void;
 }
 
 export default function EmailVerificationModal({
@@ -117,8 +117,9 @@ export default function EmailVerificationModal({
       // Verify email code using Server Action
       const result = await verifyEmailCode(email, codeToVerify);
 
-      if (result.success) {
-        onVerified();
+      if (result.success && result.token && result.user) {
+        // Pass token and user to parent component
+        onVerified(result.token, result.user);
       } else {
         setError(result.error || "Invalid verification code");
         // Clear code on error
