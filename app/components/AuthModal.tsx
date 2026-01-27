@@ -50,8 +50,15 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   }, [isOpen]);
 
   async function handleGoogleSignIn() {
-    // TODO: Implement Google OAuth
-    console.log("Google sign in clicked");
+    setLoading(true);
+    setError("");
+    try {
+      // Redirect to Google OAuth flow (server route handles state + redirect)
+      window.location.href = "/api/auth/google";
+    } catch (e) {
+      setError("Failed to start Google sign-in. Please try again.");
+      setLoading(false);
+    }
   }
 
   async function handleEmailContinue() {

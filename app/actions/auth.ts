@@ -7,7 +7,7 @@
 
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
-import { databases, RequestTarget } from "harperdb";
+import { databases } from "harperdb";
 import { generateOTP, setOTP, getOTP, deleteOTP } from './otp-store';
 import { sendEmail, generateOTPEmailTemplate } from '../lib/email';
 
@@ -17,7 +17,12 @@ const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-producti
 const { User, Wallet, Balance } = databases.pylomarket;
 
 async function findFirstByFilter<T>(table: any, filter: Record<string, any>): Promise<T | null> {
-  for await (const record of table.get(filter )) {
+  const query = {
+    conditions: Object.entries(filter).map(([attribute, value]) => ({ attribute, value })),
+    limit: 1,
+  };
+
+  for await (const record of table.search(query)) {
     return record as T;
   }
   return null;
