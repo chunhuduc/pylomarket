@@ -1,4 +1,4 @@
-name: Deploy to VPS
+name: Deploy to Digital Ocean Container Registry
 
 # Node Configuration
 # Define your HarperDB nodes here. Add more nodes as needed.
@@ -11,7 +11,7 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 jobs:
-  build-and-deploy:
+  build-and-push:
     runs-on: ubuntu-latest
     
     steps:
@@ -21,21 +21,32 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
+      - name: Login to Digital Ocean Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: registry.digitalocean.com
+          username: ${{ secrets.DOCR_USERNAME }}
+          password: ${{ secrets.DOCR_PASSWORD }}
+
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
-          push: false
-          load: true
-          tags: pylomarket:latest
+          push: true
+          load: false
+          tags: registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket:latest
+          cache-from: type=registry,ref=registry.digitalocean.com/${{ secrets.DOCR_REGISTRY_NAME }}/pylomarket:latest
           platforms: linux/amd64
 
-      - name: Save Docker image to tar
-        run: |
-          echo "💾 Saving Docker image to tar file..."
-          docker save pylomarket:latest -o pylomarket-image.tar
-          ls -lh pylomarket-image.tar
+  # Deploy to primary node first (sequential deployment)
+  deploy-primary:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
@@ -46,6 +57,9 @@ jobs:
         env:
           NODE_HOST: "68.183.184.199"
           NODE_USER: ${{ secrets.VPS_USER || 'root' }}
+          DOCR_REGISTRY: ${{ secrets.DOCR_REGISTRY_NAME }}
+          DOCR_USERNAME: ${{ secrets.DOCR_USERNAME }}
+          DOCR_PASSWORD: ${{ secrets.DOCR_PASSWORD }}
           NODE_ROLE: "primary"
           HARPERDB_USERNAME: ${{ secrets.HARPERDB_USERNAME }}
           HARPERDB_PASSWORD: ${{ secrets.HARPERDB_PASSWORD }}
@@ -53,7 +67,6 @@ jobs:
           SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL || 'https://api.devnet.solana.com' }}
           NEXT_PUBLIC_SOLANA_NETWORK: ${{ secrets.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet' }}
           APP_PORT: ${{ secrets.APP_PORT || '443' }}
-          HOT_WALLET_PRIVATE_KEY: ${{ secrets.HOT_WALLET_PRIVATE_KEY }}
         run: |
           # Set defaults if not provided
           NODE_USER=${NODE_USER:-root}
@@ -68,10 +81,6 @@ jobs:
           echo "📋 Copying Docker setup script to VPS..."
           scp -o StrictHostKeyChecking=no .github/scripts/setup-docker.sh $NODE_USER@$NODE_HOST:/tmp/setup-docker.sh
           
-          # Upload Docker image tar file
-          echo "📤 Uploading Docker image to VPS..."
-          scp -o StrictHostKeyChecking=no pylomarket-image.tar $NODE_USER@$NODE_HOST:/tmp/pylomarket-image.tar
-          
           ssh -o StrictHostKeyChecking=no $NODE_USER@$NODE_HOST << EOF
             set -e
             
@@ -80,19 +89,14 @@ jobs:
             bash /tmp/setup-docker.sh
             rm /tmp/setup-docker.sh
             
+            # Login to DOCR
+            echo "🔐 Logging in to Digital Ocean Container Registry..."
+            echo "$DOCR_PASSWORD" | docker login registry.digitalocean.com -u "$DOCR_USERNAME" --password-stdin
+            
             # Stop and remove existing container (keep volumes)
             echo "🛑 Stopping existing container..."
             docker stop pylomarket-app-prod 2>/dev/null || true
             docker rm pylomarket-app-prod 2>/dev/null || true
-            
-            # Remove old image if exists
-            echo "🗑️  Removing old image..."
-            docker rmi pylomarket:latest 2>/dev/null || true
-            
-            # Load new image from tar file
-            echo "📥 Loading Docker image from tar file..."
-            docker load -i /tmp/pylomarket-image.tar
-            rm /tmp/pylomarket-image.tar
             
             # Verify/create volume for data persistence
             echo "💾 Checking data volume..."
@@ -103,6 +107,10 @@ jobs:
               echo "✅ Data volume exists"
               docker volume ls | grep pylomarket_harperdb_data
             fi
+            
+            # Pull latest image from registry
+            echo "📥 Pulling latest image from DOCR..."
+            docker pull registry.digitalocean.com/$DOCR_REGISTRY/pylomarket:latest
             
             # Start container with all environment variables
             echo "🚀 Starting container..."
@@ -119,10 +127,9 @@ jobs:
               -e JWT_SECRET="$JWT_SECRET" \\
               -e SOLANA_RPC_URL="$SOLANA_RPC_URL" \\
               -e NEXT_PUBLIC_SOLANA_NETWORK="$NEXT_PUBLIC_SOLANA_NETWORK" \\
-              -e HOT_WALLET_PRIVATE_KEY="$HOT_WALLET_PRIVATE_KEY" \\
               -e HDB_NODE_ROLE=$NODE_ROLE \\
               -e HDB_CLUSTER_NODES="http://$NODE_HOST:9925" \\
-              pylomarket:latest
+              registry.digitalocean.com/$DOCR_REGISTRY/pylomarket:latest
             
             # Verify ports are exposed
             echo "🔌 Verifying port exposure..."
@@ -142,6 +149,40 @@ jobs:
               echo "⚠️  Warning: Volume mount verification failed. Container may still be starting..."
             fi
             
+            # Health check temporarily disabled
+            # echo "⏳ Waiting for services to be ready..."
+            # sleep 15
+            # 
+            # # Health check
+            # echo "🏥 Performing health check..."
+            # MAX_RETRIES=5
+            # RETRY_COUNT=0
+            # HEALTH_CHECK_PASSED=false
+            # 
+            # while [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; do
+            #   # Check HarperDB API (port 9925) and Next.js app (port 9926)
+            #   if curl -f http://localhost:9925 > /dev/null 2>&1 && curl -f http://localhost:9926/api/health > /dev/null 2>&1; then
+            #     echo "✅ Health check passed!"
+            #     HEALTH_CHECK_PASSED=true
+            #     break
+            #   fi
+            #   
+            #   RETRY_COUNT=\$((RETRY_COUNT + 1))
+            #   if [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; then
+            #     echo "⏳ Health check failed, retrying... (\$RETRY_COUNT/\$MAX_RETRIES)"
+            #     sleep 5
+            #   fi
+            # done
+            # 
+            # if [ "\$HEALTH_CHECK_PASSED" = false ]; then
+            #   echo "❌ Health check failed after \$MAX_RETRIES attempts"
+            #   echo "📋 Container status:"
+            #   docker ps -a | grep pylomarket-app-prod
+            #   echo "📋 Container logs:"
+            #   docker logs pylomarket-app-prod --tail=50
+            #   exit 1
+            # fi
+            
             # Clean up old images
             echo "🧹 Cleaning up old Docker images..."
             docker image prune -f
@@ -158,7 +199,7 @@ jobs:
   # Deploy to replica nodes (after primary is deployed)
   # To add more replica nodes, add entries to the matrix below
   deploy-replicas:
-    needs: build-and-deploy
+    needs: deploy-primary
     runs-on: ubuntu-latest
     # For now, no replica nodes. Uncomment and add nodes when ready:
     # strategy:
@@ -172,25 +213,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: false
-          load: true
-          tags: pylomarket:latest
-          platforms: linux/amd64
-
-      - name: Save Docker image to tar
-        run: |
-          echo "💾 Saving Docker image to tar file..."
-          docker save pylomarket:latest -o pylomarket-image.tar
-          ls -lh pylomarket-image.tar
-
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -200,6 +222,9 @@ jobs:
         env:
           NODE_HOST: ${{ matrix.node.host }}
           NODE_USER: ${{ secrets.VPS_USER || 'root' }}
+          DOCR_REGISTRY: ${{ secrets.DOCR_REGISTRY_NAME }}
+          DOCR_USERNAME: ${{ secrets.DOCR_USERNAME }}
+          DOCR_PASSWORD: ${{ secrets.DOCR_PASSWORD }}
           NODE_ROLE: ${{ matrix.node.role }}
           PRIMARY_NODE: "68.183.184.199"
           HARPERDB_USERNAME: ${{ secrets.HARPERDB_USERNAME }}
@@ -208,7 +233,6 @@ jobs:
           SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL || 'https://api.devnet.solana.com' }}
           NEXT_PUBLIC_SOLANA_NETWORK: ${{ secrets.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet' }}
           APP_PORT: ${{ secrets.APP_PORT || '443' }}
-          HOT_WALLET_PRIVATE_KEY: ${{ secrets.HOT_WALLET_PRIVATE_KEY }}
         run: |
           # Set defaults if not provided
           NODE_USER=${NODE_USER:-root}
@@ -223,10 +247,6 @@ jobs:
           echo "📋 Copying Docker setup script to VPS..."
           scp -o StrictHostKeyChecking=no .github/scripts/setup-docker.sh $NODE_USER@$NODE_HOST:/tmp/setup-docker.sh
           
-          # Upload Docker image tar file
-          echo "📤 Uploading Docker image to VPS..."
-          scp -o StrictHostKeyChecking=no pylomarket-image.tar $NODE_USER@$NODE_HOST:/tmp/pylomarket-image.tar
-          
           ssh -o StrictHostKeyChecking=no $NODE_USER@$NODE_HOST << EOF
             set -e
             
@@ -235,19 +255,12 @@ jobs:
             bash /tmp/setup-docker.sh
             rm /tmp/setup-docker.sh
             
+            echo "$DOCR_PASSWORD" | docker login registry.digitalocean.com -u "$DOCR_USERNAME" --password-stdin
+            
             # Stop and remove existing container (keep volumes)
             echo "🛑 Stopping existing container..."
             docker stop pylomarket-app-prod 2>/dev/null || true
             docker rm pylomarket-app-prod 2>/dev/null || true
-            
-            # Remove old image if exists
-            echo "🗑️  Removing old image..."
-            docker rmi pylomarket:latest 2>/dev/null || true
-            
-            # Load new image from tar file
-            echo "📥 Loading Docker image from tar file..."
-            docker load -i /tmp/pylomarket-image.tar
-            rm /tmp/pylomarket-image.tar
             
             # Verify/create volume for data persistence
             echo "💾 Checking data volume..."
@@ -258,6 +271,8 @@ jobs:
               echo "✅ Data volume exists"
               docker volume ls | grep pylomarket_harperdb_data
             fi
+            
+            docker pull registry.digitalocean.com/$DOCR_REGISTRY/pylomarket:latest
             
             # Start container with all environment variables
             echo "🚀 Starting container..."
@@ -274,10 +289,9 @@ jobs:
               -e JWT_SECRET="$JWT_SECRET" \\
               -e SOLANA_RPC_URL="$SOLANA_RPC_URL" \\
               -e NEXT_PUBLIC_SOLANA_NETWORK="$NEXT_PUBLIC_SOLANA_NETWORK" \\
-              -e HOT_WALLET_PRIVATE_KEY="$HOT_WALLET_PRIVATE_KEY" \\
               -e HDB_NODE_ROLE=$NODE_ROLE \\
               -e HDB_CLUSTER_NODES="http://$PRIMARY_NODE:9925,http://$NODE_HOST:9925" \\
-              pylomarket:latest
+              registry.digitalocean.com/$DOCR_REGISTRY/pylomarket:latest
             
             # Verify container is running
             echo "🔍 Verifying container status..."
@@ -308,9 +322,34 @@ jobs:
               echo "⚠️  Warning: Volume mount verification failed"
             fi
             
-            # Clean up old images
-            echo "🧹 Cleaning up old Docker images..."
-            docker image prune -f
+            # Health check temporarily disabled
+            # sleep 15
+            # 
+            # MAX_RETRIES=5
+            # RETRY_COUNT=0
+            # HEALTH_CHECK_PASSED=false
+            # 
+            # while [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; do
+            #   if curl -f http://localhost:9925 > /dev/null 2>&1 && curl -f http://localhost:9926/api/health > /dev/null 2>&1; then
+            #     echo "✅ Health check passed!"
+            #     HEALTH_CHECK_PASSED=true
+            #     break
+            #   fi
+            #   
+            #   RETRY_COUNT=\$((RETRY_COUNT + 1))
+            #   if [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; then
+            #     echo "⏳ Health check failed, retrying... (\$RETRY_COUNT/\$MAX_RETRIES)"
+            #     sleep 5
+            #   fi
+            # done
+            # 
+            # if [ "\$HEALTH_CHECK_PASSED" = false ]; then
+            #   echo "❌ Health check failed"
+            #   docker ps -a | grep pylomarket-app-prod
+            #   docker logs pylomarket-app-prod --tail=50
+            #   exit 1
+            # fi
             
+            docker image prune -f
             echo "✅ Deployment to replica node completed successfully!"
           EOF
