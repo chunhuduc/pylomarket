@@ -62,6 +62,7 @@ jobs:
           echo "🚀 Deploying to primary node: $NODE_HOST"
           echo "👤 Using SSH user: $NODE_USER"
           echo "🌐 App port: $APP_PORT"
+          ssh-keyscan -H $NODE_HOST >> ~/.ssh/known_hosts
           
           # Copy setup script to VPS
           echo "📋 Copying Docker setup script to VPS..."
