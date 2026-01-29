@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { getCurrentUserInfo } from "@/actions";
 
 interface Market {
   id: string;
@@ -62,8 +63,9 @@ export default function MarketPage() {
       return;
     }
 
-    const token = localStorage.getItem("token");
-    if (!token) {
+    // Check auth using Server Action (reads from HttpOnly cookie)
+    const userResult = await getCurrentUserInfo();
+    if (!userResult.success || !userResult.user) {
       alert("Please login first");
       return;
     }
@@ -73,7 +75,6 @@ export default function MarketPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": "user_123", // TODO: Get from token
         },
         body: JSON.stringify({
           marketId,

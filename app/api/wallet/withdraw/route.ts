@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBalance, debitWithdrawal } from "@/actions";
+import { getBalanceWithUserId, debitWithdrawal } from "@/actions";
 import { sendSOL } from "@/actions/solana";
 import { getUserIdFromToken } from "@/lib/jwt";
 
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check user balance
-    const balanceResult = await getBalance(userId);
+    const balanceResult = await getBalanceWithUserId(userId);
     if (!balanceResult.success || !balanceResult.balance) {
       return NextResponse.json(
         { error: "Balance not found. Please create a wallet first." },

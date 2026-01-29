@@ -2,6 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { 
+  getBalance, 
+  getWallet, 
+  createWallet, 
+  getTransactions,
+  checkDeposits,
+  withdraw,
+  getCurrentUserInfo
+} from "@/actions";
 
 interface Balance {
   id: string;
@@ -45,20 +54,21 @@ export default function WalletPage() {
   const [creatingWallet, setCreatingWallet] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/auth/login");
-      return;
-    }
-    fetchData();
+    checkAuthAndFetch();
   }, [router]);
 
-  function getAuthHeaders() {
-    const token = localStorage.getItem("token");
-    return {
-      "Authorization": `Bearer ${token}`,
-      "Content-Type": "application/json",
-    };
+  async function checkAuthAndFetch() {
+    try {
+      const userResult = await getCurrentUserInfo();
+      if (!userResult.success || !userResult.user) {
+        router.push("/auth/login");
+        return;
+      }
+      await fetchData();
+    } catch (error) {
+      console.error("Error checking auth:", error);
+      router.push("/auth/login");
+    }
   }
 
   async function fetchData() {
@@ -68,13 +78,11 @@ export default function WalletPage() {
 
   async function fetchWallet() {
     try {
-      const response = await fetch("/api/wallet/solana/address", {
-        headers: getAuthHeaders(),
-      });
-
-      const data = await response.json();
-      if (data.success && data.wallet) {
-        setWallet(data.wallet);
+      // Use Server Action (reads from HttpOnly cookie)
+      const result = await getWallet();
+      
+      if (result.success && result.wallet) {
+        setWallet(result.wallet);
       } else {
         // Wallet not found - user needs to create one
         setWallet(null);
@@ -91,18 +99,15 @@ export default function WalletPage() {
     setSuccess("");
 
     try {
-      const response = await fetch("/api/wallet/create", {
-        method: "POST",
-        headers: getAuthHeaders(),
-      });
-
-      const data = await response.json();
-      if (data.success) {
+      // Use Server Action (reads from HttpOnly cookie)
+      const result = await createWallet();
+      
+      if (result.success) {
         setSuccess("Wallet created successfully!");
         await fetchWallet();
         await fetchBalance();
       } else {
-        setError(data.error || "Failed to create wallet");
+        setError(result.error || "Failed to create wallet");
       }
     } catch (error) {
       console.error("Error creating wallet:", error);
@@ -114,13 +119,11 @@ export default function WalletPage() {
 
   async function fetchBalance() {
     try {
-      const response = await fetch("/api/wallet/balance", {
-        headers: getAuthHeaders(),
-      });
-
-      const data = await response.json();
-      if (data.success && data.balance) {
-        setBalance(data.balance);
+      // Use Server Action (reads from HttpOnly cookie)
+      const result = await getBalance();
+      
+      if (result.success && result.balance) {
+        setBalance(result.balance);
       } else {
         // Balance not found - will be created when wallet is created
         setBalance(null);
@@ -133,13 +136,11 @@ export default function WalletPage() {
 
   async function fetchTransactions() {
     try {
-      const response = await fetch("/api/wallet/transactions?limit=20", {
-        headers: getAuthHeaders(),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setTransactions(data.transactions || []);
+      // Use Server Action (reads from HttpOnly cookie)
+      const result = await getTransactions(20);
+      
+      if (result.success) {
+        setTransactions(result.transactions || []);
       }
     } catch (error) {
       console.error("Error fetching transactions:", error);
@@ -157,22 +158,19 @@ export default function WalletPage() {
     setSuccess("");
 
     try {
-      const response = await fetch("/api/wallet/solana/check-deposits", {
-        method: "POST",
-        headers: getAuthHeaders(),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        if (data.creditedCount > 0) {
-          setSuccess(`Successfully credited ${data.creditedCount} deposit(s)!`);
+      // Use Server Action (reads from HttpOnly cookie)
+      const result = await checkDeposits();
+      
+      if (result.success) {
+        if (result.creditedCount && result.creditedCount > 0) {
+          setSuccess(`Successfully credited ${result.creditedCount} deposit(s)!`);
           await fetchBalance();
           await fetchTransactions();
         } else {
           setSuccess("No new deposits found");
         }
       } else {
-        setError(data.error || "Failed to check deposits");
+        setError(result.error || "Failed to check deposits");
       }
     } catch (error) {
       console.error("Error checking deposits:", error);
@@ -206,24 +204,17 @@ export default function WalletPage() {
     setWithdrawing(true);
 
     try {
-      const response = await fetch("/api/wallet/withdraw", {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          toAddress: withdrawAddress,
-          amount: amount,
-        }),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setSuccess(`Withdrawal successful! Signature: ${data.signature}`);
+      // Use Server Action (reads from HttpOnly cookie)
+      const result = await withdraw(withdrawAddress, amount);
+      
+      if (result.success) {
+        setSuccess(`Withdrawal successful! Signature: ${result.signature}`);
         setWithdrawAddress("");
         setWithdrawAmount("");
         await fetchBalance();
         await fetchTransactions();
       } else {
-        setError(data.error || "Withdrawal failed");
+        setError(result.error || "Withdrawal failed");
       }
     } catch (error) {
       console.error("Error withdrawing:", error);

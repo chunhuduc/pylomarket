@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkNewDeposits, getWallet, getTransactions } from "@/actions";
+import { checkNewDeposits, getWalletWithUserId, getTransactionsWithUserId } from "@/actions";
 import { creditDeposit } from "@/actions/wallet";
 import { getUserIdFromToken } from "@/lib/jwt";
 
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user's wallet
-    const walletResult = await getWallet(userId);
+    const walletResult = await getWalletWithUserId(userId);
     if (!walletResult.success || !walletResult.wallet?.solana_address) {
       return NextResponse.json(
         { error: "Wallet not found" },
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const address = walletResult.wallet.solana_address;
 
     // Get all deposit transactions to check for duplicates
-    const transactionsResult = await getTransactions(userId, 100);
+    const transactionsResult = await getTransactionsWithUserId(userId, 100);
     const processedSignatures = new Set(
       transactionsResult.success && transactionsResult.transactions
         ? transactionsResult.transactions

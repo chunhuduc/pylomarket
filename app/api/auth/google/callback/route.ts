@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import * as jwt from "jsonwebtoken";
 import { databases } from "harperdb";
+import { completeUserLogin } from "@/actions/auth";
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
+const { User } = databases.pylomarket;
 
 function getBaseUrl(request: NextRequest) {
   // Prefer forwarded headers when behind a proxy (HarperDB/Next integration often proxies :9926 -> :3000)
@@ -21,7 +21,6 @@ function base64UrlEncode(input: string) {
 }
 
 async function findUserByEmail(email: string) {
-  const { User } = databases.pylomarket;
   const query: any = {
     conditions: [{ attribute: "email", value: email }],
     limit: 1,
@@ -34,9 +33,7 @@ async function findUserByEmail(email: string) {
   return null;
 }
 
-async function createUserWithWalletAndBalance(email: string, username: string) {
-  const { User, Wallet, Balance } = databases.pylomarket;
-
+async function createUser(email: string, username: string) {
   const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const now = new Date().toISOString();
 
@@ -51,23 +48,6 @@ async function createUserWithWalletAndBalance(email: string, username: string) {
 
   console.log("[Google OAuth] creating user:", { userId, email });
   await (User as any).create(userData);
-
-  const walletId = `wallet_${userId}`;
-  await (Wallet as any).create({
-    id: walletId,
-    user_id: userId,
-    solana_address: "",
-    created_at: now,
-    updated_at: now,
-  });
-
-  await (Balance as any).create({
-    id: `balance_${userId}`,
-    user_id: userId,
-    balance: 0,
-    currency: "USD",
-    updated_at: now,
-  });
 
   return { id: userId, email, username };
 }
@@ -158,27 +138,36 @@ export async function GET(request: NextRequest) {
 
     console.log("[Google OAuth] resolved identity:", { email });
 
+    // Check if user exists or create new user
     let userRecord = await findUserByEmail(email);
     let user: { id: string; email: string; username: string };
 
     if (!userRecord) {
-      user = await createUserWithWalletAndBalance(email, suggestedUsername);
+      // Create new user (wallet will be created in completeUserLogin)
+      user = await createUser(email, suggestedUsername);
+      console.log("[Google OAuth] new user created:", { userId: user.id });
     } else {
+      // User exists
       user = {
         id: userRecord.id,
         email: userRecord.email,
         username: userRecord.username,
       };
+      console.log("[Google OAuth] existing user found:", { userId: user.id });
     }
 
-    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, {
-      expiresIn: "7d",
-    });
+    // Complete login flow (ensure wallet + generate token)
+    const loginResult = await completeUserLogin(user.id, user.email, user.username);
+    
+    if (!loginResult.success || !loginResult.token || !loginResult.user) {
+      console.error("[Google OAuth] failed to complete login:", loginResult.error);
+      return redirectToCallbackPage({ error: "login_completion_failed" });
+    }
 
     // Clear state cookies
     const res = redirectToCallbackPage({
-      token,
-      user: base64UrlEncode(JSON.stringify(user)),
+      token: loginResult.token,
+      user: base64UrlEncode(JSON.stringify(loginResult.user)),
       returnTo: request.cookies.get("google_oauth_returnTo")?.value || "/",
     });
     res.cookies.set("google_oauth_state", "", { path: "/", maxAge: 0 });

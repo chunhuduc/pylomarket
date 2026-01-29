@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getWallet } from "@/actions";
+import { getWalletWithUserId } from "@/actions";
 import { getUserIdFromToken } from "@/lib/jwt";
 
 export async function GET(request: NextRequest) {
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get wallet using Server Action
-    const result = await getWallet(userId);
+    const result = await getWalletWithUserId(userId);
 
     // If wallet not found, return success with null wallet (user needs to create wallet)
     if (!result.success || !result.wallet) {

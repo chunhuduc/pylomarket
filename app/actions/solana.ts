@@ -30,16 +30,23 @@ function getSolanaConnection() {
 
 /**
  * Generate a new Solana wallet (Keypair)
- * Returns the public key (address) as a string
+ * Returns the public key (address) and private key (base64 encoded)
  */
-export async function generateSolanaWallet(): Promise<{ address: string; publicKey: PublicKey }> {
+export async function generateSolanaWallet(): Promise<{ 
+  address: string; 
+  publicKey: PublicKey;
+  privateKey: string; // Base64 encoded secret key (64 bytes)
+}> {
   try {
     const keypair = Keypair.generate();
     const address = keypair.publicKey.toBase58();
+    // Convert secret key (Uint8Array) to base64 for storage
+    const privateKey = Buffer.from(keypair.secretKey).toString('base64');
     
     return {
       address,
       publicKey: keypair.publicKey,
+      privateKey,
     };
   } catch (error: any) {
     throw new Error(`Failed to generate Solana wallet: ${error.message}`);

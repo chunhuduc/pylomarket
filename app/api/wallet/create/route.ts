@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createWallet } from "@/actions/wallet";
+import { createWalletWithUserId } from "@/actions/wallet";
 import { getUserIdFromToken } from "@/lib/jwt";
 
 /**
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create wallet
-    const result = await createWallet(userId);
+    const result = await createWalletWithUserId(userId);
 
     if (!result.success) {
       return NextResponse.json(

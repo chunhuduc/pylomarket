@@ -10,7 +10,8 @@ import * as jwt from 'jsonwebtoken';
 import { databases } from "harperdb";
 import { generateOTP, setOTP, getOTP, deleteOTP } from './otp-store';
 import { sendEmail, generateOTPEmailTemplate } from '../lib/email';
-// Removed generateSolanaWallet import - wallet creation moved to wallet management
+import { ensureWalletExists } from './wallet';
+import { setAuthToken, clearAuthToken, getCurrentUser as getCurrentUserFromCookie } from '../lib/auth';
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
 
@@ -84,34 +85,26 @@ export async function loginUser(email: string, password: string) {
       return { success: false, error: "Invalid credentials" };
     }
 
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    // Complete login flow (ensure wallet + generate token)
+    const loginResult = await completeUserLogin(user.id, user.email, user.username);
+    
+    if (!loginResult.success) {
+      return {
+        success: false,
+        error: loginResult.error || 'Failed to complete login',
+      };
+    }
 
     return {
       success: true,
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-      },
+      token: loginResult.token,
+      user: loginResult.user,
     };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
 }
 
-export async function verifyToken(token: string) {
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    return { success: true, user: decoded };
-  } catch (error: any) {
-    return { success: false, error: "Invalid token" };
-  }
-}
 
 /**
  * OTP Verification Server Actions
@@ -189,6 +182,61 @@ async function createUserWithWallet(email: string) {
       name: error.name,
     });
     throw error;
+  }
+}
+
+/**
+ * Complete user login flow - common function for all login methods
+ * This ensures wallet exists and generates JWT token
+ * Called after user is confirmed to exist (either newly created or existing)
+ */
+export async function completeUserLogin(userId: string, email: string, username: string) {
+  console.log('[DEBUG] completeUserLogin: Starting for user:', { userId, email });
+  
+  try {
+    // Ensure wallet exists for user (auto-create if not exists)
+    console.log('[DEBUG] completeUserLogin: Ensuring wallet exists...');
+    const walletResult = await ensureWalletExists(userId);
+    if (walletResult.success && walletResult.created) {
+      console.log('[DEBUG] completeUserLogin: Wallet created successfully');
+    } else if (walletResult.success) {
+      console.log('[DEBUG] completeUserLogin: Wallet already exists');
+    } else {
+      console.warn('[WARN] completeUserLogin: Failed to ensure wallet exists:', walletResult.error);
+      // Continue anyway - wallet can be created later
+    }
+
+    // Generate JWT token
+    console.log('[DEBUG] completeUserLogin: Generating JWT token...');
+    const token = jwt.sign(
+      { userId, email },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+    console.log('[DEBUG] completeUserLogin: JWT token generated successfully');
+
+    // Set HttpOnly cookie
+    console.log('[DEBUG] completeUserLogin: Setting auth cookie...');
+    await setAuthToken(token);
+    console.log('[DEBUG] completeUserLogin: Auth cookie set successfully');
+
+    console.log('[DEBUG] completeUserLogin: Login completed successfully');
+    
+    return {
+      success: true,
+      token, // Keep token in response for backward compatibility
+      user: {
+        id: userId,
+        email,
+        username,
+      },
+    };
+  } catch (error: any) {
+    console.error('[ERROR] completeUserLogin: Failed:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to complete login',
+    };
   }
 }
 
@@ -290,26 +338,23 @@ export async function verifyEmailCode(email: string, code: string) {
       console.log('[DEBUG] verifyEmailCode: Using existing user id:', userId);
     }
 
-    // Generate JWT token
-    console.log('[DEBUG] verifyEmailCode: Generating JWT token...');
-    const token = jwt.sign(
-      { userId, email },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-    console.log('[DEBUG] verifyEmailCode: JWT token generated successfully');
+    // Complete login flow (ensure wallet + generate token)
+    const loginResult = await completeUserLogin(userId, email, username);
+    
+    if (!loginResult.success) {
+      return {
+        success: false,
+        error: loginResult.error || 'Failed to complete login',
+      };
+    }
 
     console.log('[DEBUG] verifyEmailCode: Verification completed successfully');
     
     return {
       success: true,
       message: "Email verified successfully",
-      token,
-      user: {
-        id: userId,
-        email,
-        username,
-      },
+      token: loginResult.token,
+      user: loginResult.user,
     };
   } catch (error: any) {
     console.error('[ERROR] verifyEmailCode: Failed to verify email:', error);
@@ -323,5 +368,55 @@ export async function verifyEmailCode(email: string, code: string) {
       success: false, 
       error: `Failed to verify email: ${error.message || 'Unknown error'}` 
     };
+  }
+}
+
+/**
+ * Logout user by clearing authentication cookie
+ */
+export async function logout() {
+  try {
+    await clearAuthToken();
+    return {
+      success: true,
+      message: 'Logged out successfully',
+    };
+  } catch (error: any) {
+    console.error('[ERROR] logout: Failed to logout:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to logout',
+    };
+  }
+}
+
+/**
+ * Get current authenticated user info
+ * Returns null if not authenticated
+ */
+export async function getCurrentUserInfo() {
+  try {
+    const user = await getCurrentUserFromCookie();
+    if (!user) {
+      return { success: false, user: null };
+    }
+    
+    // Get username from database
+    const foundUser = await findFirstByFilter<any>(User, { id: user.userId } as any);
+    if (!foundUser) {
+      return { success: false, user: null };
+    }
+    
+    return {
+      success: true,
+      user: {
+        id: foundUser.id,
+        email: foundUser.email,
+        username: foundUser.username,
+      },
+    };
+  } catch (error: any) {
+    console.error('[ERROR] getCurrentUserInfo:', error);
+    return { success: false, user: null };
   }
 }

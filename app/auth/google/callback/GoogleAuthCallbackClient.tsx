@@ -36,8 +36,9 @@ export default function GoogleAuthCallbackClient() {
       const userJson = base64UrlDecode(userEncoded);
       const user = JSON.parse(userJson);
 
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
+      // Cookie is already set by server, no need to store in localStorage
+      // Dispatch custom event to notify Header component
+      window.dispatchEvent(new CustomEvent('userLoggedIn', { detail: { token, user } }));
 
       router.replace(returnTo);
       router.refresh();

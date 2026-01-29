@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBalance } from "@/actions";
+import { getBalanceWithUserId } from "@/actions";
 import { getUserIdFromToken } from "@/lib/jwt";
 
 export async function GET(request: NextRequest) {
   try {
     // Get token from Authorization header
     const authHeader = request.headers.get("authorization");
+    console.log("authHeader", authHeader);
     const token = authHeader?.replace("Bearer ", "") || null;
 
     if (!token) {
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Call Server Action
-    const result = await getBalance(userId);
+    const result = await getBalanceWithUserId(userId);
 
     // If balance not found, return success with null balance (user needs to create wallet)
     if (!result.success) {

@@ -7,10 +7,26 @@
  */
 
 // Auth actions
-export { registerUser, loginUser, verifyToken, sendVerificationCode, verifyEmailCode } from './auth';
+export { registerUser, loginUser, sendVerificationCode, verifyEmailCode, logout, getCurrentUserInfo } from './auth';
 
 // Wallet actions
-export { getWallet, getBalance, updateBalance, getTransactions, createWallet } from './wallet';
+export { 
+  // New functions using HttpOnly cookies
+  getWallet, 
+  getBalance, 
+  createWallet,
+  getTransactions,
+  checkDeposits,
+  withdraw,
+  // Functions with userId parameter (for API routes)
+  getWalletWithUserId,
+  getBalanceWithUserId,
+  createWalletWithUserId,
+  getTransactionsWithUserId,
+  // Internal functions
+  updateBalance, 
+  ensureWalletExists 
+} from './wallet';
 
 // Market actions
 export { listMarkets, getMarket, createMarket, resolveMarket } from './markets';

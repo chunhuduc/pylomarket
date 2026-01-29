@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTransactions } from "@/actions";
+import { getTransactionsWithUserId } from "@/actions";
 import { getUserIdFromToken } from "@/lib/jwt";
 
 /**
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const limit = limitParam ? parseInt(limitParam, 10) : 50;
 
     // Get transactions
-    const result = await getTransactions(userId, limit);
+    const result = await getTransactionsWithUserId(userId, limit);
 
     if (!result.success) {
       return NextResponse.json(

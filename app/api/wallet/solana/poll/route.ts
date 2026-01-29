@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pollDeposits, getWallet } from "@/actions";
+import { pollDeposits, getWalletWithUserId } from "@/actions";
 import { getUserIdFromToken } from "@/lib/jwt";
 
 export async function POST(request: NextRequest) {
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user's wallet address
-    const walletResult = await getWallet(userId);
+    const walletResult = await getWalletWithUserId(userId);
     if (!walletResult.success || !walletResult.wallet?.solana_address) {
       return NextResponse.json(
         { error: "Wallet not found" },

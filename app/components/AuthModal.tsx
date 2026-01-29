@@ -88,10 +88,10 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   }
 
   function handleEmailVerified(token: string, user: { id: string; email: string; username: string }) {
-    // Save token and user to localStorage
+    // Cookie is already set by server, no need to store in localStorage
+    // Dispatch custom event to notify Header component
     if (typeof window !== 'undefined') {
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
+      window.dispatchEvent(new CustomEvent('userLoggedIn', { detail: { token, user } }));
     }
     
     // Close modal and redirect to home

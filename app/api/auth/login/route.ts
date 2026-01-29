@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call Server Action
+    // Call Server Action (this sets cookie internally)
     const result = await loginUser(email, password);
 
     if (!result.success) {
@@ -22,7 +22,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(result);
+    // Cookie is already set by loginUser() Server Action
+    // Return response with user data (token is in cookie)
+    return NextResponse.json({
+      success: true,
+      user: result.user,
+      // Include token in response for backward compatibility (client may need it)
+      token: result.token,
+    });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Login failed";
     

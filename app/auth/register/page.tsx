@@ -38,9 +38,9 @@ function RegisterForm() {
       const data = await response.json();
 
       if (data.success) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        // Cookie is already set by server, no need to store in localStorage
         router.push("/");
+        router.refresh();
       } else {
         setError(data.error || "Registration failed");
       }
