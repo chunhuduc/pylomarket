@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pollDeposits, getWallet } from "@/actions";
+import { getTransactions } from "@/actions";
 import { getUserIdFromToken } from "@/lib/jwt";
 
-export async function POST(request: NextRequest) {
+/**
+ * Get user's transaction history
+ * GET /api/wallet/transactions?limit=50
+ */
+export async function GET(request: NextRequest) {
   try {
     // Get token from Authorization header
     const authHeader = request.headers.get("authorization");
@@ -17,23 +21,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    // Get user's wallet address
-    const walletResult = await getWallet(userId);
-    if (!walletResult.success || !walletResult.wallet?.solana_address) {
-      return NextResponse.json(
-        { error: "Wallet not found" },
-        { status: 404 }
-      );
-    }
+    // Get limit from query params
+    const limitParam = request.nextUrl.searchParams.get("limit");
+    const limit = limitParam ? parseInt(limitParam, 10) : 50;
 
-    const address = walletResult.wallet.solana_address;
-
-    // Call Server Action
-    const result = await pollDeposits(address);
+    // Get transactions
+    const result = await getTransactions(userId, limit);
 
     if (!result.success) {
       return NextResponse.json(
-        { error: result.error || "Failed to poll deposits" },
+        { error: result.error || "Failed to get transactions" },
         { status: 500 }
       );
     }
@@ -41,7 +38,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to poll deposits" },
+      { error: error instanceof Error ? error.message : "Failed to get transactions" },
       { status: 500 }
     );
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface Balance {
   id: string;
@@ -17,29 +18,57 @@ interface Wallet {
   created_at: string;
 }
 
+interface Transaction {
+  id: string;
+  user_id: string;
+  type: string;
+  amount: number;
+  currency: string;
+  status: string;
+  solana_signature: string | null;
+  metadata: string | null;
+  created_at: string;
+}
+
 export default function WalletPage() {
+  const router = useRouter();
   const [balance, setBalance] = useState<Balance | null>(null);
   const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [polling, setPolling] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawAddress, setWithdrawAddress] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    fetchWallet();
-    fetchBalance();
-  }, []);
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/auth/login");
+      return;
+    }
+    fetchData();
+  }, [router]);
+
+  function getAuthHeaders() {
+    const token = localStorage.getItem("token");
+    return {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
+  }
+
+  async function fetchData() {
+    await Promise.all([fetchWallet(), fetchBalance(), fetchTransactions()]);
+    setLoading(false);
+  }
 
   async function fetchWallet() {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
       const response = await fetch("/api/wallet/solana/address", {
-        headers: {
-          "x-user-id": "user_123", // TODO: Get from token
-        },
+        headers: getAuthHeaders(),
       });
 
       const data = await response.json();
@@ -48,22 +77,13 @@ export default function WalletPage() {
       }
     } catch (error) {
       console.error("Error fetching wallet:", error);
-    } finally {
-      setLoading(false);
     }
   }
 
   async function fetchBalance() {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        return;
-      }
-
       const response = await fetch("/api/wallet/balance", {
-        headers: {
-          "x-user-id": "user_123", // TODO: Get from token
-        },
+        headers: getAuthHeaders(),
       });
 
       const data = await response.json();
@@ -75,40 +95,113 @@ export default function WalletPage() {
     }
   }
 
-  async function handlePollDeposits() {
+  async function fetchTransactions() {
+    try {
+      const response = await fetch("/api/wallet/transactions?limit=20", {
+        headers: getAuthHeaders(),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setTransactions(data.transactions || []);
+      }
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+    }
+  }
+
+  async function handleCheckDeposits() {
     if (!wallet) {
-      alert("Wallet not found");
+      setError("Wallet not found");
       return;
     }
 
-    setPolling(true);
+    setChecking(true);
+    setError("");
+    setSuccess("");
+
     try {
-      const response = await fetch("/api/wallet/solana/poll", {
+      const response = await fetch("/api/wallet/solana/check-deposits", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: getAuthHeaders(),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        if (data.creditedCount > 0) {
+          setSuccess(`Successfully credited ${data.creditedCount} deposit(s)!`);
+          await fetchBalance();
+          await fetchTransactions();
+        } else {
+          setSuccess("No new deposits found");
+        }
+      } else {
+        setError(data.error || "Failed to check deposits");
+      }
+    } catch (error) {
+      console.error("Error checking deposits:", error);
+      setError("Failed to check deposits");
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function handleWithdraw(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (!withdrawAddress || !withdrawAmount) {
+      setError("Please fill in all fields");
+      return;
+    }
+
+    const amount = parseFloat(withdrawAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setError("Invalid amount");
+      return;
+    }
+
+    if (!balance || balance.balance < amount) {
+      setError("Insufficient balance");
+      return;
+    }
+
+    setWithdrawing(true);
+
+    try {
+      const response = await fetch("/api/wallet/withdraw", {
+        method: "POST",
+        headers: getAuthHeaders(),
         body: JSON.stringify({
-          address: wallet.solana_address,
+          toAddress: withdrawAddress,
+          amount: amount,
         }),
       });
 
       const data = await response.json();
       if (data.success) {
-        if (data.count > 0) {
-          alert(`Found ${data.count} new deposit(s)!`);
-          fetchBalance();
-        } else {
-          alert("No new deposits found");
-        }
+        setSuccess(`Withdrawal successful! Signature: ${data.signature}`);
+        setWithdrawAddress("");
+        setWithdrawAmount("");
+        await fetchBalance();
+        await fetchTransactions();
       } else {
-        alert(data.error || "Failed to poll deposits");
+        setError(data.error || "Withdrawal failed");
       }
     } catch (error) {
-      console.error("Error polling deposits:", error);
-      alert("Failed to poll deposits");
+      console.error("Error withdrawing:", error);
+      setError("Failed to process withdrawal");
     } finally {
-      setPolling(false);
+      setWithdrawing(false);
+    }
+  }
+
+  function copyAddress() {
+    if (wallet?.solana_address) {
+      navigator.clipboard.writeText(wallet.solana_address);
+      setSuccess("Address copied to clipboard!");
+      setTimeout(() => setSuccess(""), 2000);
     }
   }
 
@@ -125,66 +218,164 @@ export default function WalletPage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-3xl font-bold text-white mb-8">Wallet</h1>
 
+        {/* Error/Success Messages */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-900/20 border border-red-700/50 rounded-lg text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="mb-4 p-4 bg-green-900/20 border border-green-700/50 rounded-lg text-green-400 text-sm">
+            {success}
+          </div>
+        )}
+
         <div className="space-y-6">
           {/* Balance Card */}
           <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
             <h2 className="text-lg font-semibold text-white mb-4">Balance</h2>
             <div className="text-4xl font-bold text-white mb-2">
-              ${balance?.balance.toFixed(2) || "0.00"}
+              {balance?.balance.toFixed(4) || "0.0000"} {balance?.currency || "SOL"}
             </div>
-            <p className="text-sm text-gray-400">{balance?.currency || "USD"}</p>
+            <p className="text-sm text-gray-400">Available for trading</p>
           </div>
 
-          {/* Solana Address */}
+          {/* Deposit Section */}
           <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
-            <h2 className="text-lg font-semibold text-white mb-4">Deposit Address</h2>
-            {wallet ? (
+            <h2 className="text-lg font-semibold text-white mb-4">Deposit SOL</h2>
+            {wallet?.solana_address ? (
               <div className="space-y-4">
                 <div className="bg-[#2a2a2a] p-4 rounded-lg">
-                  <p className="text-sm text-gray-400 mb-1">Solana Address (Devnet)</p>
-                  <p className="text-white font-mono text-sm break-all">
-                    {wallet.solana_address}
-                  </p>
+                  <p className="text-sm text-gray-400 mb-2">Your Deposit Address</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-white font-mono text-sm break-all flex-1">
+                      {wallet.solana_address}
+                    </p>
+                    <button
+                      onClick={copyAddress}
+                      className="px-3 py-1 bg-[#3a3a3a] text-white text-sm rounded hover:bg-[#4a4a4a] transition-colors"
+                    >
+                      Copy
+                    </button>
+                  </div>
                 </div>
                 <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-4">
                   <p className="text-sm text-yellow-400">
-                    ⚠️ Send SOL to this address on Solana Devnet. Deposits will be
-                    automatically credited to your balance.
+                    ⚠️ Send SOL to this address on Solana Devnet. After sending, click "Check for Deposits" to credit your balance.
                   </p>
                 </div>
                 <button
-                  onClick={handlePollDeposits}
-                  disabled={polling}
+                  onClick={handleCheckDeposits}
+                  disabled={checking}
                   className="w-full px-4 py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {polling ? "Polling..." : "Check for Deposits"}
+                  {checking ? "Checking..." : "Check for Deposits"}
                 </button>
               </div>
             ) : (
               <div className="text-center py-8">
-                <p className="text-gray-400 mb-4">No wallet found</p>
-                <button
-                  onClick={fetchWallet}
-                  className="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-gray-200 transition-colors"
-                >
-                  Generate Wallet
-                </button>
+                <p className="text-gray-400">Wallet not found</p>
               </div>
             )}
           </div>
 
-          {/* Instructions */}
+          {/* Withdrawal Section */}
           <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
-            <h2 className="text-lg font-semibold text-white mb-4">How to Deposit</h2>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-400">
-              <li>Copy your Solana deposit address above</li>
-              <li>Send SOL from your Solana wallet to this address (Devnet only)</li>
-              <li>Click "Check for Deposits" to verify your deposit</li>
-              <li>Your balance will be updated automatically</li>
-            </ol>
-            <p className="text-xs text-gray-500 mt-4">
-              Note: This is a devnet address. Do not send mainnet SOL.
-            </p>
+            <h2 className="text-lg font-semibold text-white mb-4">Withdraw SOL</h2>
+            <form onSubmit={handleWithdraw} className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">
+                  Recipient Address
+                </label>
+                <input
+                  type="text"
+                  value={withdrawAddress}
+                  onChange={(e) => setWithdrawAddress(e.target.value)}
+                  placeholder="Enter Solana address"
+                  className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">
+                  Amount (SOL)
+                </label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  min="0.01"
+                  value={withdrawAmount}
+                  onChange={(e) => setWithdrawAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-white"
+                />
+                {balance && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Available: {balance.balance.toFixed(4)} SOL
+                  </p>
+                )}
+              </div>
+              <button
+                type="submit"
+                disabled={withdrawing || !withdrawAddress || !withdrawAmount}
+                className="w-full px-4 py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {withdrawing ? "Processing..." : "Withdraw"}
+              </button>
+            </form>
+          </div>
+
+          {/* Transaction History */}
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-white mb-4">Transaction History</h2>
+            {transactions.length > 0 ? (
+              <div className="space-y-2">
+                {transactions.map((tx) => (
+                  <div
+                    key={tx.id}
+                    className="flex items-center justify-between p-3 bg-[#2a2a2a] rounded-lg"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-sm font-medium ${
+                            tx.type === "deposit"
+                              ? "text-green-400"
+                              : tx.type === "withdrawal"
+                              ? "text-red-400"
+                              : "text-gray-400"
+                          }`}
+                        >
+                          {tx.type === "deposit" ? "Deposit" : tx.type === "withdrawal" ? "Withdrawal" : tx.type}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(tx.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                      {tx.solana_signature && (
+                        <p className="text-xs text-gray-500 font-mono mt-1 truncate">
+                          {tx.solana_signature}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <span
+                        className={`text-sm font-medium ${
+                          tx.type === "deposit" ? "text-green-400" : "text-red-400"
+                        }`}
+                      >
+                        {tx.type === "deposit" ? "+" : "-"}
+                        {tx.amount.toFixed(4)} {tx.currency}
+                      </span>
+                      <p className="text-xs text-gray-500 mt-1">{tx.status}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-400 text-sm text-center py-8">
+                No transactions yet
+              </p>
+            )}
           </div>
         </div>
       </div>

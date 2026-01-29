@@ -1,18 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWallet } from "@/actions";
+import { getUserIdFromToken } from "@/lib/jwt";
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get("x-user-id");
+    // Get token from Authorization header
+    const authHeader = request.headers.get("authorization");
+    const token = authHeader?.replace("Bearer ", "") || null;
 
-    if (!userId) {
+    if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const userId = getUserIdFromToken(token);
+    if (!userId) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
     // Get wallet using Server Action
     const result = await getWallet(userId);
 
-    if (!result.success) {
+    if (!result.success || !result.wallet) {
       return NextResponse.json(
         { error: result.error || "Wallet not found" },
         { status: 404 }

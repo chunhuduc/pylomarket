@@ -19,4 +19,14 @@ export { listMarkets, getMarket, createMarket, resolveMarket } from './markets';
 export { placeOrder, cancelOrder, getOrders, getOrderbook } from './orders';
 
 // Solana actions
-export { pollDeposits, pollUserDeposits } from './solana';
+export { 
+  pollDeposits, 
+  pollUserDeposits, 
+  generateSolanaWallet,
+  checkNewDeposits,
+  sendSOL,
+  recordDepositTransaction
+} from './solana';
+
+// Wallet actions - additional exports
+export { creditDeposit, debitWithdrawal } from './wallet';
