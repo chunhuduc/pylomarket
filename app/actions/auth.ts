@@ -10,7 +10,7 @@ import * as jwt from 'jsonwebtoken';
 import { databases } from "harperdb";
 import { generateOTP, setOTP, getOTP, deleteOTP } from './otp-store';
 import { sendEmail, generateOTPEmailTemplate } from '../lib/email';
-import { generateSolanaWallet } from './solana';
+// Removed generateSolanaWallet import - wallet creation moved to wallet management
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
 
@@ -53,26 +53,8 @@ export async function registerUser(email: string, password: string, username: st
 
     await (User as any).create(userData);
 
-    // Generate Solana wallet
-    const { address: solanaAddress } = await generateSolanaWallet();
-
-    // Create wallet and balance
-    const walletId = `wallet_${userId}`;
-    await (Wallet as any).create({
-      id: walletId,
-      user_id: userId,
-      solana_address: solanaAddress,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-
-    await (Balance as any).create({
-      id: `balance_${userId}`,
-      user_id: userId,
-      balance: 0,
-      currency: "SOL",
-      updated_at: new Date().toISOString(),
-    });
+    // Wallet and balance will be created when user sets up wallet in wallet management page
+    // No longer creating wallet automatically during registration
 
     return { success: true, userId, message: "User registered successfully" };
   } catch (error: any) {
@@ -195,34 +177,8 @@ async function createUserWithWallet(email: string) {
     await (User as any).create(userData);
     console.log('[DEBUG] createUserWithWallet: User created successfully');
 
-    // Generate Solana wallet
-    console.log('[DEBUG] createUserWithWallet: Generating Solana wallet...');
-    const { address: solanaAddress } = await generateSolanaWallet();
-    console.log('[DEBUG] createUserWithWallet: Generated Solana address:', solanaAddress);
-
-    // Create wallet
-    const walletId = `wallet_${userId}`;
-    console.log('[DEBUG] createUserWithWallet: Creating wallet with id:', walletId);
-    await (Wallet as any).create({
-      id: walletId,
-      user_id: userId,
-      solana_address: solanaAddress,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-    console.log('[DEBUG] createUserWithWallet: Wallet created successfully');
-
-    // Create balance
-    const balanceId = `balance_${userId}`;
-    console.log('[DEBUG] createUserWithWallet: Creating balance with id:', balanceId);
-    await (Balance as any).create({
-      id: balanceId,
-      user_id: userId,
-      balance: 0,
-      currency: "SOL",
-      updated_at: new Date().toISOString(),
-    });
-    console.log('[DEBUG] createUserWithWallet: Balance created successfully');
+    // Wallet and balance will be created when user sets up wallet in wallet management page
+    // No longer creating wallet automatically during registration
 
     return { userId, username };
   } catch (error: any) {

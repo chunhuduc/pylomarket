@@ -20,11 +20,14 @@ export async function GET(request: NextRequest) {
     // Get wallet using Server Action
     const result = await getWallet(userId);
 
+    // If wallet not found, return success with null wallet (user needs to create wallet)
     if (!result.success || !result.wallet) {
-      return NextResponse.json(
-        { error: result.error || "Wallet not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: true,
+        address: null,
+        wallet: null,
+        message: "Wallet not found. Please create a wallet first.",
+      });
     }
 
     return NextResponse.json({

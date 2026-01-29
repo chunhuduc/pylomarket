@@ -10,7 +10,7 @@
 export { registerUser, loginUser, verifyToken, sendVerificationCode, verifyEmailCode } from './auth';
 
 // Wallet actions
-export { getWallet, getBalance, updateBalance, getTransactions } from './wallet';
+export { getWallet, getBalance, updateBalance, getTransactions, createWallet } from './wallet';
 
 // Market actions
 export { listMarkets, getMarket, createMarket, resolveMarket } from './markets';

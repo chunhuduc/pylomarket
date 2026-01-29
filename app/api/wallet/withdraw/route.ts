@@ -53,8 +53,8 @@ export async function POST(request: NextRequest) {
     const balanceResult = await getBalance(userId);
     if (!balanceResult.success || !balanceResult.balance) {
       return NextResponse.json(
-        { error: "Failed to get balance" },
-        { status: 500 }
+        { error: "Balance not found. Please create a wallet first." },
+        { status: 404 }
       );
     }
 

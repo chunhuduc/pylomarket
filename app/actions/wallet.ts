@@ -6,6 +6,7 @@
  */
 
 import { databases } from "harperdb";
+import { generateSolanaWallet } from './solana';
 
 const SCHEMA = "pylomarket";
 
@@ -37,6 +38,49 @@ export async function getWallet(userId: string) {
       return { success: false, error: "Wallet not found" };
     }
 
+    return { success: true, wallet };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Create a new wallet for user
+ */
+export async function createWallet(userId: string) {
+  try {
+    // Check if wallet already exists
+    const existingWallet = await findFirstByFilter<any>(Wallet, { user_id: userId });
+    if (existingWallet) {
+      return { success: false, error: "Wallet already exists" };
+    }
+
+    // Generate Solana wallet
+    const { address: solanaAddress } = await generateSolanaWallet();
+
+    // Create wallet
+    const walletId = `wallet_${userId}`;
+    await (Wallet as any).create({
+      id: walletId,
+      user_id: userId,
+      solana_address: solanaAddress,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    // Create balance
+    const balanceId = `balance_${userId}`;
+    await (Balance as any).create({
+      id: balanceId,
+      user_id: userId,
+      balance: 0,
+      currency: "SOL",
+      updated_at: new Date().toISOString(),
+    });
+
+    // Get the created wallet
+    const wallet = await findFirstByFilter<any>(Wallet, { user_id: userId });
+    
     return { success: true, wallet };
   } catch (error: any) {
     return { success: false, error: error.message };

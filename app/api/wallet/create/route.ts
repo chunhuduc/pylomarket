@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBalance } from "@/actions";
+import { createWallet } from "@/actions/wallet";
 import { getUserIdFromToken } from "@/lib/jwt";
 
-export async function GET(request: NextRequest) {
+/**
+ * Create a new wallet for the authenticated user
+ * POST /api/wallet/create
+ */
+export async function POST(request: NextRequest) {
   try {
     // Get token from Authorization header
     const authHeader = request.headers.get("authorization");
@@ -17,28 +21,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    // Call Server Action
-    const result = await getBalance(userId);
+    // Create wallet
+    const result = await createWallet(userId);
 
-    // If balance not found, return success with null balance (user needs to create wallet)
     if (!result.success) {
-      if (result.error === "Balance not found") {
-        return NextResponse.json({
-          success: true,
-          balance: null,
-          message: "Balance not found. Please create a wallet first.",
-        });
-      }
       return NextResponse.json(
-        { error: result.error || "Failed to get balance" },
-        { status: 500 }
+        { error: result.error || "Failed to create wallet" },
+        { status: 400 }
       );
     }
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      success: true,
+      wallet: result.wallet,
+      message: "Wallet created successfully",
+    });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to get balance" },
+      { error: error instanceof Error ? error.message : "Failed to create wallet" },
       { status: 500 }
     );
   }
