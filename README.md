@@ -66,9 +66,9 @@ pylomarket/
 - **Framework**: Next.js 15 (App Router)
 - **Database**: HarperDB 4.7
 - **Blockchain**: Solana (deposit integration)
-- **Auth**: JWT tokens with bcrypt
+- **Auth**: JWT tokens with HttpOnly Cookies (bcrypt for password hashing)
 - **Styling**: Tailwind CSS
-- **Deployment**: Docker + GitHub Actions → Digital Ocean Container Registry → VPS
+- **Deployment**: Docker + GitHub Actions → Digital Ocean Container Registry → VPS (using GitHub Environments)
 
 ### Data Flow
 
@@ -84,19 +84,22 @@ Client Component → API Route → Server Action → HarperDB
 
 **Pattern:**
 - **Server Components**: Call Server Actions directly (no HTTP overhead)
-- **Client Components**: Call API Routes → API Routes call Server Actions
+- **Client Components**: Call Server Actions directly (Next.js handles serialization automatically)
+- **API Routes**: Legacy endpoints (still available, but prefer Server Actions for new code)
 - **Server Actions**: Access HarperDB via `import { databases } from "harperdb"`
+- **Authentication**: HttpOnly Cookies (automatic, no client-side token management needed)
 
 ## 🎯 Features
 
-- ✅ **User Authentication** - JWT-based auth with bcrypt
+- ✅ **User Authentication** - JWT-based auth with HttpOnly Cookies (secure, scalable)
 - ✅ **Prediction Markets** - Create and trade on markets
 - ✅ **Order Book** - Limit orders with automatic matching
-- ✅ **Wallet System** - Virtual balance management
-- ✅ **Solana Integration** - Crypto deposits via polling
+- ✅ **Wallet System** - System-managed encrypted wallets with Solana integration
+- ✅ **Solana Integration** - Crypto deposits via polling, withdrawals via hot wallet
 - ✅ **Polymarket-style UI** - Modern, responsive design with infinite scroll
 - ✅ **Category Navigation** - Filter markets by category
 - ✅ **Real-time Updates** - Live market data
+- ✅ **Server Actions** - Modern Next.js Server Actions for all backend operations
 
 ## 📖 Usage Examples
 
@@ -151,11 +154,12 @@ async function fetchMarkets() {
 - `getOrderbook(marketId)`
 
 **Wallet:**
-- `createWallet(userId, solanaAddress)`
-- `getWallet(userId)`
-- `getBalance(userId)`
-- `updateBalance(userId, amount, type)`
-- `getTransactions(userId, limit)`
+- `getWallet()` - Get current user's wallet (uses HttpOnly cookie auth)
+- `createWallet()` - Create wallet for current user (auto-called on login if needed)
+- `getBalance()` - Get current user's balance
+- `getTransactions(limit)` - Get transaction history for current user
+- `checkDeposits()` - Check and credit Solana deposits for current user
+- `withdraw(toAddress, amount)` - Withdraw SOL from current user's balance
 
 **Solana:**
 - `pollDeposits(address)`
@@ -166,17 +170,26 @@ async function fetchMarkets() {
 ### Environment Variables
 
 ```env
-# JWT Secret
+# JWT Secret (required)
 JWT_SECRET=your-secret-key-change-in-production
 
-# Solana RPC
+# Encryption Key (optional, falls back to JWT_SECRET if not set)
+ENCRYPTION_KEY=your-encryption-key
+
+# Solana Configuration
 SOLANA_RPC_URL=https://api.devnet.solana.com
-NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com
 NEXT_PUBLIC_SOLANA_NETWORK=devnet
+
+# Hot Wallet (required for withdrawals)
+HOT_WALLET_PRIVATE_KEY=your-hot-wallet-private-key-base64-or-array
 
 # HarperDB (optional, defaults in config.yaml)
 HARPERDB_USERNAME=HDB_ADMIN
 HARPERDB_PASSWORD=password
+
+# Google OAuth (optional)
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 # SMTP Email Configuration (optional - if not set, emails will be logged to console)
 SMTP_HOST=smtp.example.com
@@ -186,6 +199,8 @@ SMTP_USER=your-email@example.com
 SMTP_PASS=your-smtp-password
 SMTP_FROM=noreply@pylomarket.com  # Optional, defaults to SMTP_USER
 ```
+
+**Note**: For production deployment, use GitHub Environments to manage secrets and variables. See `.github/SECRETS_SETUP.md` for details.
 
 ### HarperDB Config (`config.yaml`)
 
@@ -343,8 +358,12 @@ docker run -d \
 - `HDB_ADMIN_USERNAME` - HarperDB admin username
 - `HDB_ADMIN_PASSWORD` - HarperDB admin password
 - `JWT_SECRET` - JWT secret key
+- `ENCRYPTION_KEY` - Encryption key (optional, falls back to JWT_SECRET)
+- `HOT_WALLET_PRIVATE_KEY` - Hot wallet private key (required for withdrawals)
 - `SOLANA_RPC_URL` - Solana RPC endpoint
 - `NEXT_PUBLIC_SOLANA_NETWORK` - Solana network (devnet/mainnet)
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` - Google OAuth (optional)
+- `SMTP_*` - Email configuration (optional)
 
 **Data Persistence:**
 - HarperDB data is stored in Docker volume `harperdb_data`
@@ -389,9 +408,12 @@ npm install
 
 ### Deployment Issues
 - Check GitHub Actions logs in `.github/workflows/deploy.yml`
-- Verify all required secrets are set in GitHub repository settings
+- Verify all required secrets are set in GitHub Environment (`production`) and repository settings
+- Ensure `production` environment is created and configured
+- Check that environment variables use `vars.VARIABLE_NAME` and secrets use `secrets.SECRET_NAME`
 - Ensure VPS has Docker installed and SSH access is configured
 - Check Docker logs on VPS: `docker logs pylomarket-app-prod`
+- Verify GitHub Environment protection rules (if enabled) don't block deployment
 
 ## 📊 Project Status
 
@@ -399,11 +421,15 @@ npm install
 
 **Recent Changes:**
 - ✅ Migrated from HarperDB Resources to Next.js Server Actions
+- ✅ Implemented HttpOnly Cookies authentication (secure, scalable)
+- ✅ Migrated wallet operations to Server Actions (no REST API needed)
+- ✅ Added automatic wallet creation on user login
+- ✅ Implemented encrypted wallet private key storage
 - ✅ Fixed WebSocket errors (removed jsResource conflicts)
 - ✅ Redesigned UI with Polymarket-inspired layout
 - ✅ Implemented infinite scroll for markets
 - ✅ Added category navigation and filtering
-- ✅ Automated deployment via GitHub Actions
+- ✅ Automated deployment via GitHub Actions with GitHub Environments
 - ✅ Docker-based deployment (integrated HarperDB + Next.js)
 - ✅ Multi-VPS deployment with peer-to-peer replication
 

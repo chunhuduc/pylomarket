@@ -130,7 +130,34 @@ SOLANA_RPC_URL=https://api.devnet.solana.com  # Devnet
 - Check address đúng
 - Verify transaction signature trên Solana explorer
 
-## API Endpoints
+## API Usage
+
+### Server Actions (Recommended)
+
+The wallet system uses Next.js Server Actions for all operations. These automatically handle authentication via HttpOnly cookies:
+
+```typescript
+import { getWallet, getBalance, checkDeposits, withdraw, getTransactions } from '@/actions';
+
+// Get wallet info (automatically uses current user from cookie)
+const wallet = await getWallet();
+
+// Get balance
+const balance = await getBalance();
+
+// Check for new deposits
+const result = await checkDeposits();
+
+// Withdraw SOL
+const withdrawResult = await withdraw(toAddress, amount);
+
+// Get transaction history
+const transactions = await getTransactions(50);
+```
+
+### REST API Endpoints (Legacy - Still Available)
+
+For backward compatibility, REST endpoints are still available:
 
 - `GET /api/wallet/balance` - Get user balance
 - `GET /api/wallet/solana/address` - Get deposit address
@@ -138,16 +165,24 @@ SOLANA_RPC_URL=https://api.devnet.solana.com  # Devnet
 - `POST /api/wallet/withdraw` - Withdraw SOL
 - `GET /api/wallet/transactions` - Get transaction history
 
+**Note**: REST endpoints require passing `userId` as a query parameter or in the request body. Server Actions automatically use the authenticated user from HttpOnly cookies.
+
 ## Environment Variables Summary
 
 ```env
-# JWT Secret
+# JWT Secret (required)
 JWT_SECRET=your-secret-key
+
+# Encryption Key (optional, falls back to JWT_SECRET if not set)
+ENCRYPTION_KEY=your-encryption-key
 
 # Solana Configuration
 SOLANA_RPC_URL=https://api.devnet.solana.com
+NEXT_PUBLIC_SOLANA_NETWORK=devnet
 HOT_WALLET_PRIVATE_KEY=<base64-or-array-format>
 
 # Optional: Minimum withdrawal amount (default: 0.01)
 MIN_WITHDRAWAL=0.01
 ```
+
+**For Production**: Use GitHub Environments to manage these secrets and variables. See `.github/SECRETS_SETUP.md` for details.

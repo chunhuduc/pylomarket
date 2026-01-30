@@ -43,6 +43,7 @@ jobs:
   deploy-primary:
     needs: build-and-push
     runs-on: ubuntu-latest
+    environment: production
     
     steps:
       - name: Checkout code
@@ -61,12 +62,24 @@ jobs:
           DOCR_USERNAME: ${{ secrets.DOCR_USERNAME }}
           DOCR_PASSWORD: ${{ secrets.DOCR_PASSWORD }}
           NODE_ROLE: "primary"
+          # Environment secrets (sensitive data)
           HARPERDB_USERNAME: ${{ secrets.HARPERDB_USERNAME }}
           HARPERDB_PASSWORD: ${{ secrets.HARPERDB_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL || 'https://api.devnet.solana.com' }}
-          NEXT_PUBLIC_SOLANA_NETWORK: ${{ secrets.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet' }}
-          APP_PORT: ${{ secrets.APP_PORT || '443' }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY || '' }}
+          HOT_WALLET_PRIVATE_KEY: ${{ secrets.HOT_WALLET_PRIVATE_KEY }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          # Environment variables (non-sensitive configuration)
+          SOLANA_RPC_URL: ${{ vars.SOLANA_RPC_URL || 'https://api.devnet.solana.com' }}
+          NEXT_PUBLIC_SOLANA_NETWORK: ${{ vars.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet' }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || '' }}
+          SMTP_HOST: ${{ vars.SMTP_HOST || '' }}
+          SMTP_PORT: ${{ vars.SMTP_PORT || '587' }}
+          SMTP_SECURE: ${{ vars.SMTP_SECURE || 'false' }}
+          SMTP_USER: ${{ vars.SMTP_USER || '' }}
+          SMTP_FROM: ${{ vars.SMTP_FROM || '' }}
+          APP_PORT: ${{ vars.APP_PORT || '443' }}
         run: |
           # Set defaults if not provided
           NODE_USER=${NODE_USER:-root}
@@ -125,8 +138,18 @@ jobs:
               -e HDB_HOSTNAME=0.0.0.0 \\
               -e NODE_ENV=production \\
               -e JWT_SECRET="$JWT_SECRET" \\
+              -e ENCRYPTION_KEY="$ENCRYPTION_KEY" \\
+              -e HOT_WALLET_PRIVATE_KEY="$HOT_WALLET_PRIVATE_KEY" \\
               -e SOLANA_RPC_URL="$SOLANA_RPC_URL" \\
               -e NEXT_PUBLIC_SOLANA_NETWORK="$NEXT_PUBLIC_SOLANA_NETWORK" \\
+              -e GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \\
+              -e GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \\
+              -e SMTP_HOST="$SMTP_HOST" \\
+              -e SMTP_PORT="$SMTP_PORT" \\
+              -e SMTP_SECURE="$SMTP_SECURE" \\
+              -e SMTP_USER="$SMTP_USER" \\
+              -e SMTP_PASS="$SMTP_PASS" \\
+              -e SMTP_FROM="$SMTP_FROM" \\
               -e HDB_NODE_ROLE=$NODE_ROLE \\
               -e HDB_CLUSTER_NODES="http://$NODE_HOST:9925" \\
               registry.digitalocean.com/$DOCR_REGISTRY/pylomarket:latest
@@ -201,6 +224,7 @@ jobs:
   deploy-replicas:
     needs: deploy-primary
     runs-on: ubuntu-latest
+    environment: production
     # For now, no replica nodes. Uncomment and add nodes when ready:
     # strategy:
     #   matrix:
@@ -227,12 +251,24 @@ jobs:
           DOCR_PASSWORD: ${{ secrets.DOCR_PASSWORD }}
           NODE_ROLE: ${{ matrix.node.role }}
           PRIMARY_NODE: "68.183.184.199"
+          # Environment secrets (sensitive data)
           HARPERDB_USERNAME: ${{ secrets.HARPERDB_USERNAME }}
           HARPERDB_PASSWORD: ${{ secrets.HARPERDB_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL || 'https://api.devnet.solana.com' }}
-          NEXT_PUBLIC_SOLANA_NETWORK: ${{ secrets.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet' }}
-          APP_PORT: ${{ secrets.APP_PORT || '443' }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY || '' }}
+          HOT_WALLET_PRIVATE_KEY: ${{ secrets.HOT_WALLET_PRIVATE_KEY }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          # Environment variables (non-sensitive configuration)
+          SOLANA_RPC_URL: ${{ vars.SOLANA_RPC_URL || 'https://api.devnet.solana.com' }}
+          NEXT_PUBLIC_SOLANA_NETWORK: ${{ vars.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet' }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID || '' }}
+          SMTP_HOST: ${{ vars.SMTP_HOST || '' }}
+          SMTP_PORT: ${{ vars.SMTP_PORT || '587' }}
+          SMTP_SECURE: ${{ vars.SMTP_SECURE || 'false' }}
+          SMTP_USER: ${{ vars.SMTP_USER || '' }}
+          SMTP_FROM: ${{ vars.SMTP_FROM || '' }}
+          APP_PORT: ${{ vars.APP_PORT || '443' }}
         run: |
           # Set defaults if not provided
           NODE_USER=${NODE_USER:-root}
@@ -287,8 +323,18 @@ jobs:
               -e HDB_HOSTNAME=0.0.0.0 \\
               -e NODE_ENV=production \\
               -e JWT_SECRET="$JWT_SECRET" \\
+              -e ENCRYPTION_KEY="$ENCRYPTION_KEY" \\
+              -e HOT_WALLET_PRIVATE_KEY="$HOT_WALLET_PRIVATE_KEY" \\
               -e SOLANA_RPC_URL="$SOLANA_RPC_URL" \\
               -e NEXT_PUBLIC_SOLANA_NETWORK="$NEXT_PUBLIC_SOLANA_NETWORK" \\
+              -e GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \\
+              -e GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \\
+              -e SMTP_HOST="$SMTP_HOST" \\
+              -e SMTP_PORT="$SMTP_PORT" \\
+              -e SMTP_SECURE="$SMTP_SECURE" \\
+              -e SMTP_USER="$SMTP_USER" \\
+              -e SMTP_PASS="$SMTP_PASS" \\
+              -e SMTP_FROM="$SMTP_FROM" \\
               -e HDB_NODE_ROLE=$NODE_ROLE \\
               -e HDB_CLUSTER_NODES="http://$PRIMARY_NODE:9925,http://$NODE_HOST:9925" \\
               registry.digitalocean.com/$DOCR_REGISTRY/pylomarket:latest
