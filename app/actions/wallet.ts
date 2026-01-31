@@ -702,20 +702,65 @@ export async function markKeyAsExported(walletId: string) {
       return { success: false, error: "Wallet not found" };
     }
 
-    // Update wallet - mark as self-managed and external-like
-    await (Wallet as any).update({
-      id: wallet.id,
-      key_exported: true,
-      key_management_mode: 'self-managed',
-      wallet_source: 'external-like', // Treat as external wallet after export
-      updated_at: new Date().toISOString(),
-    });
+    // Check if already self-managed
+    if (wallet.key_management_mode === 'self-managed') {
+      return { 
+        success: false, 
+        error: "Wallet is already self-managed. Private key has been exported." 
+      };
+    }
 
-    return { 
-      success: true,
-      message: "Wallet is now self-managed. App will no longer store your private key."
-    };
+    try {
+      // Try using patch first (only update specific fields)
+      try {
+        await (Wallet as any).patch(wallet.id, {
+          encrypted_private_key: '', // Remove encrypted private key - user now manages it
+          key_exported: true,
+          key_management_mode: 'self-managed',
+          wallet_source: 'external-like', // Treat as external wallet after export
+          updated_at: new Date().toISOString(),
+        });
+      } catch (patchError: any) {
+        // If patch fails, try full update with all fields
+        console.warn('[markKeyAsExported] Patch failed, trying full update:', patchError.message);
+        const updateData: any = {
+          id: wallet.id,
+          user_id: wallet.user_id,
+          solana_address: wallet.solana_address,
+          encrypted_private_key: '', // Remove encrypted private key
+          key_exported: true,
+          key_management_mode: 'self-managed',
+          wallet_source: 'external-like',
+          is_primary: wallet.is_primary || false,
+          created_at: wallet.created_at,
+          updated_at: new Date().toISOString(),
+        };
+        await (Wallet as any).update(updateData);
+      }
+
+      return { 
+        success: true,
+        message: "Wallet is now self-managed. App will no longer store your private key."
+      };
+    } catch (updateError: any) {
+      // Log detailed error for debugging
+      console.error('[markKeyAsExported] Update error:', {
+        walletId,
+        error: updateError.message,
+        stack: updateError.stack,
+      });
+      
+      return { 
+        success: false, 
+        error: `Failed to update wallet: ${updateError.message || 'Unknown error'}` 
+      };
+    }
   } catch (error: any) {
+    console.error('[markKeyAsExported] Error:', {
+      walletId,
+      error: error.message,
+      stack: error.stack,
+    });
     return { success: false, error: error.message || 'Failed to update wallet' };
   }
 }
@@ -811,22 +856,63 @@ export async function setPrimaryWallet(walletId: string) {
     const allWallets = await findAllByFilter<any>(Wallet, { user_id: user.userId });
     
     // Unset primary for all wallets
+    // Use instance patch/update to avoid stack overflow from table-level methods
     for (const w of allWallets) {
       if (w.is_primary) {
-        await (Wallet as any).update({
-          id: w.id,
-          is_primary: false,
-          updated_at: new Date().toISOString(),
-        });
+        try {
+          // Get instance first, then patch
+          const walletInstance = await Wallet.get(w.id);
+          if (walletInstance) {
+            await (walletInstance as any).patch({
+              is_primary: false,
+              updated_at: new Date().toISOString(),
+            });
+          }
+        } catch (patchError: any) {
+          // If patch fails, try update on instance
+          try {
+            const walletInstance = await Wallet.get(w.id);
+            if (walletInstance) {
+              await (walletInstance as any).update({
+                is_primary: false,
+                updated_at: new Date().toISOString(),
+              });
+            }
+          } catch (updateError: any) {
+            console.warn('[setPrimaryWallet] Failed to unset primary for wallet:', w.id, updateError.message);
+            // Continue with other wallets even if one fails
+          }
+        }
       }
     }
 
     // Set selected wallet as primary
-    await (Wallet as any).update({
-      id: wallet.id,
-      is_primary: true,
-      updated_at: new Date().toISOString(),
-    });
+    // Use instance patch/update to avoid stack overflow
+    try {
+      const walletInstance = await Wallet.get(wallet.id);
+      if (!walletInstance) {
+        return { success: false, error: "Wallet instance not found" };
+      }
+      
+      await (walletInstance as any).patch({
+        is_primary: true,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (patchError: any) {
+      // If patch fails, try update on instance
+      try {
+        const walletInstance = await Wallet.get(wallet.id);
+        if (walletInstance) {
+          await (walletInstance as any).update({
+            is_primary: true,
+            updated_at: new Date().toISOString(),
+          });
+        }
+      } catch (updateError: any) {
+        console.error('[setPrimaryWallet] Failed to set primary:', updateError);
+        throw updateError;
+      }
+    }
 
     return { 
       success: true,
@@ -865,18 +951,72 @@ export async function deleteWallet(walletId: string) {
 
     const wasPrimary = wallet.is_primary === true;
 
+    // Get remaining wallets BEFORE deletion (to avoid issues after deletion)
+    const remainingWallets = await findAllByFilter<any>(Wallet, { 
+      user_id: user.userId 
+    });
+    const otherWallets = remainingWallets.filter((w: any) => w.id !== walletId);
+
     // Hard delete (permanently remove from database)
-    await (Wallet as any).delete(wallet.id);
+    // Workaround for HarperDB Resource API delete() stack overflow bug
+    // TODO: Add proper verification after delete operation
+    // Currently disabled verification due to HarperDB eventual consistency issues
+    // If delete() executes without exception, we assume deletion succeeded
+    try {
+      const walletInstance = await Wallet.get(walletId);
+      if (!walletInstance) {
+        return { success: false, error: "Wallet not found" };
+      }
+
+      // Attempt delete - if no exception thrown, assume success
+      // Note: delete() may throw stack overflow error but still succeed in deleting the wallet
+      // We catch and ignore the error, assuming deletion succeeded if no exception
+      await (walletInstance as any).delete();
+      
+      // TODO: Add verification logic here to confirm wallet was actually deleted
+      // Current approach: Trust that no exception means success
+      // Future improvement: Add retry-based verification with proper handling of eventual consistency
+    } catch (deleteError: any) {
+      // If delete() throws an exception, check if it's a critical error
+      // Stack overflow errors are known to occur but deletion may still succeed
+      // For now, we'll treat any exception as a failure
+      // TODO: Implement proper error handling - some errors (like stack overflow) 
+      // might indicate success despite the exception. Need to verify deletion.
+      
+      console.error('[deleteWallet] Delete error:', deleteError);
+      return { 
+        success: false, 
+        error: `Failed to delete wallet: ${deleteError.message || 'Unknown error'}` 
+      };
+    }
 
     // If deleted wallet was primary, set remaining wallet as primary
-    if (wasPrimary) {
-      const remainingWallets = await findAllByFilter<any>(Wallet, { user_id: user.userId });
-      if (remainingWallets.length > 0) {
-        await (Wallet as any).update({
-          id: remainingWallets[0].id,
-          is_primary: true,
-          updated_at: new Date().toISOString(),
-        });
+    // Use instance methods to avoid stack overflow
+    if (wasPrimary && otherWallets.length > 0) {
+      try {
+        const remainingWalletInstance = await Wallet.get(otherWallets[0].id);
+        if (remainingWalletInstance) {
+          // Use patch on instance to avoid stack overflow
+          await (remainingWalletInstance as any).patch({
+            is_primary: true,
+            updated_at: new Date().toISOString(),
+          });
+        }
+      } catch (setPrimaryError: any) {
+        // If patch fails, try update on instance
+        try {
+          const remainingWalletInstance = await Wallet.get(otherWallets[0].id);
+          if (remainingWalletInstance) {
+            await (remainingWalletInstance as any).update({
+              is_primary: true,
+              updated_at: new Date().toISOString(),
+            });
+          }
+        } catch (updateError: any) {
+          console.error('[deleteWallet] Failed to set remaining wallet as primary:', updateError);
+          // Don't fail the entire operation - wallet was deleted successfully
+          // Just log the error
+        }
       }
     }
 

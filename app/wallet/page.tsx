@@ -340,6 +340,15 @@ export default function WalletPage() {
   async function confirmExportKey() {
     if (!exportingWalletId) return;
 
+    // Check if wallet is already self-managed
+    const wallet = wallets.find(w => w.id === exportingWalletId);
+    if (wallet && wallet.key_management_mode === 'self-managed') {
+      setError("This wallet is already self-managed. Private key has been exported.");
+      setShowKeyWarning(false);
+      setExportingWalletId(null);
+      return;
+    }
+
     setExportingKey(true);
     setError("");
     setSuccess("");
@@ -352,9 +361,14 @@ export default function WalletPage() {
         setExportedPrivateKey(exportResult.privateKey);
         
         // Mark as exported (always self-managed when exported)
-        await markKeyAsExported(exportingWalletId);
+        const markResult = await markKeyAsExported(exportingWalletId);
         
-        // Refresh wallet data
+        if (!markResult.success) {
+          console.error("Failed to mark key as exported:", markResult.error);
+          setError("Key exported but failed to update wallet status. Please refresh the page.");
+        }
+        
+        // Refresh wallet data to reflect the change
         await fetchWallets();
         
         setShowKeyWarning(false);
