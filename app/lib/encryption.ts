@@ -57,13 +57,29 @@ export function encrypt(text: string): string {
  */
 export function decrypt(encryptedText: string): string {
   try {
+    // Validate input
+    if (!encryptedText || typeof encryptedText !== 'string' || encryptedText.trim() === '') {
+      throw new Error('Encrypted text is empty or invalid');
+    }
+
     const combined = Buffer.from(encryptedText, 'base64');
+    
+    // Validate buffer length (should be at least SALT_LENGTH + IV_LENGTH + TAG_LENGTH)
+    const minLength = SALT_LENGTH + IV_LENGTH + TAG_LENGTH;
+    if (combined.length < minLength) {
+      throw new Error(`Encrypted data too short. Expected at least ${minLength} bytes, got ${combined.length}`);
+    }
     
     // Extract components
     const salt = combined.subarray(0, SALT_LENGTH);
     const iv = combined.subarray(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
     const tag = combined.subarray(TAG_POSITION, TAG_POSITION + TAG_LENGTH);
     const encrypted = combined.subarray(ENCRYPTED_POSITION);
+    
+    // Validate encrypted data exists
+    if (encrypted.length === 0) {
+      throw new Error('No encrypted data found');
+    }
     
     const key = getKey(salt);
     
@@ -75,6 +91,10 @@ export function decrypt(encryptedText: string): string {
     
     return decrypted;
   } catch (error: any) {
+    // Provide more detailed error message
+    if (error.message.includes('unable to authenticate') || error.message.includes('Unsupported state')) {
+      throw new Error(`Decryption authentication failed. This usually means the encryption key has changed or the data is corrupted. Original error: ${error.message}`);
+    }
     throw new Error(`Decryption failed: ${error.message}`);
   }
 }

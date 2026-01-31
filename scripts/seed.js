@@ -18,9 +18,6 @@ const seedData = JSON.parse(fs.readFileSync(seedDataPath, "utf8"));
 
 // Table insertion order (respecting dependencies)
 const tableOrder = [
-  "users",      // No dependencies
-  "wallets",    // Depends on users
-  "balances",   // Depends on users
   "markets",    // No dependencies
   "orders",     // Depends on users and markets
   "trades",     // Depends on orders

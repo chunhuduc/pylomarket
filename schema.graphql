@@ -17,15 +17,9 @@ type Wallet @table(database: "pylomarket") {
   encrypted_private_key: String
   key_exported: Boolean
   key_management_mode: String
+  wallet_source: String
+  is_primary: Boolean
   created_at: String
-  updated_at: String
-}
-
-type Balance @table(database: "pylomarket") {
-  id: String @primaryKey
-  user_id: String @indexed
-  balance: Float
-  currency: String
   updated_at: String
 }
 

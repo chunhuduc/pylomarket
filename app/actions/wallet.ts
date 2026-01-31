@@ -11,11 +11,12 @@ import { encrypt, decrypt } from '../lib/encryption';
 import { checkNewDeposits } from './solana';
 import { sendSOL } from './solana';
 import { requireAuth } from '../lib/auth';
+import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 const SCHEMA = "pylomarket";
 
 // Extract tables from databases
-const { Wallet, Balance, Transaction } = databases.pylomarket;
+const { Wallet, Transaction } = databases.pylomarket;
 
 // Declare global harperdb type (for backward compatibility)
 declare global {
@@ -34,16 +35,35 @@ async function findFirstByFilter<T>(table: any, filter: Record<string, any>): Pr
   return null;
 }
 
+async function findAllByFilter<T>(table: any, filter: Record<string, any>): Promise<T[]> {
+  const query = {
+    conditions: Object.entries(filter).map(([attribute, value]) => ({ attribute, value })),
+    limit: 100,
+  };
+
+  const results: T[] = [];
+  for await (const record of table.search(query)) {
+    results.push(record as T);
+  }
+  return results;
+}
+
 /**
- * Internal function to get wallet by userId
+ * Internal function to get primary wallet by userId
  * Used by other server-side functions
  */
 async function getWalletByUserId(userId: string) {
   try {
-    const wallet = await findFirstByFilter<any>(Wallet, { user_id: userId });
+    const wallets = await findAllByFilter<any>(Wallet, { user_id: userId });
     
-    if (!wallet) {
+    if (wallets.length === 0) {
       return { success: false, error: "Wallet not found" };
+    }
+
+    // Find primary wallet, or fallback to first wallet if no primary set
+    let wallet = wallets.find((w: any) => w.is_primary === true);
+    if (!wallet) {
+      wallet = wallets[0];
     }
 
     // Convert HarperDB object to plain object (required for Server Actions)
@@ -53,6 +73,8 @@ async function getWalletByUserId(userId: string) {
       solana_address: wallet.solana_address,
       key_exported: wallet.key_exported || false,
       key_management_mode: wallet.key_management_mode || 'app-managed',
+      wallet_source: wallet.wallet_source || 'system-generated',
+      is_primary: wallet.is_primary || false,
       created_at: wallet.created_at,
       updated_at: wallet.updated_at,
     };
@@ -60,6 +82,43 @@ async function getWalletByUserId(userId: string) {
     return { success: true, wallet: plainWallet };
   } catch (error: any) {
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get all wallets for a user
+ */
+async function getAllWalletsByUserId(userId: string) {
+  try {
+    const wallets = await findAllByFilter<any>(Wallet, { user_id: userId });
+    
+    const plainWallets = wallets.map(wallet => ({
+      id: wallet.id,
+      user_id: wallet.user_id,
+      solana_address: wallet.solana_address,
+      key_exported: wallet.key_exported || false,
+      key_management_mode: wallet.key_management_mode || 'app-managed',
+      wallet_source: wallet.wallet_source || 'system-generated',
+      is_primary: wallet.is_primary || false,
+      created_at: wallet.created_at,
+      updated_at: wallet.updated_at,
+    }));
+
+    return { success: true, wallets: plainWallets };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get wallet count for a user
+ */
+async function getWalletCountByUserId(userId: string): Promise<number> {
+  try {
+    const wallets = await findAllByFilter<any>(Wallet, { user_id: userId });
+    return wallets.length;
+  } catch (error: any) {
+    return 0;
   }
 }
 
@@ -90,11 +149,14 @@ export async function getWalletWithUserId(userId: string) {
  */
 async function createWalletByUserId(userId: string) {
   try {
-    // Check if wallet already exists
-    const existingWallet = await findFirstByFilter<any>(Wallet, { user_id: userId });
-    if (existingWallet) {
-      return { success: false, error: "Wallet already exists" };
+    // Check wallet count (max 2 wallets)
+    const walletCount = await getWalletCountByUserId(userId);
+    if (walletCount >= 2) {
+      return { success: false, error: "Maximum 2 wallets allowed. Please delete an existing wallet first." };
     }
+
+    // Check if this will be the first wallet (set as primary)
+    const isFirstWallet = walletCount === 0;
 
     // Generate Solana wallet (includes private key)
     const { address: solanaAddress, privateKey } = await generateSolanaWallet();
@@ -103,7 +165,7 @@ async function createWalletByUserId(userId: string) {
     const encryptedPrivateKey = encrypt(privateKey);
 
     // Create wallet with encrypted private key
-    const walletId = `wallet_${userId}`;
+    const walletId = `wallet_${userId}_${Date.now()}`;
     await (Wallet as any).create({
       id: walletId,
       user_id: userId,
@@ -111,22 +173,16 @@ async function createWalletByUserId(userId: string) {
       encrypted_private_key: encryptedPrivateKey,
       key_exported: false,
       key_management_mode: 'app-managed',
+      wallet_source: 'system-generated',
+      is_primary: isFirstWallet, // Set as primary if first wallet
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
 
-    // Create balance
-    const balanceId = `balance_${userId}`;
-    await (Balance as any).create({
-      id: balanceId,
-      user_id: userId,
-      balance: 0,
-      currency: "SOL",
-      updated_at: new Date().toISOString(),
-    });
+    // Balance is managed on blockchain, no need to create balance record
 
-    // Get the created wallet (without exposing private key)
-    const wallet = await findFirstByFilter<any>(Wallet, { user_id: userId });
+    // Get the created wallet by ID (without exposing private key)
+    const wallet = await findFirstByFilter<any>(Wallet, { id: walletId });
     // Convert HarperDB object to plain object (required for Server Actions)
     if (wallet) {
       const plainWallet = {
@@ -135,6 +191,8 @@ async function createWalletByUserId(userId: string) {
         solana_address: wallet.solana_address,
         key_exported: wallet.key_exported || false,
         key_management_mode: wallet.key_management_mode || 'app-managed',
+        wallet_source: wallet.wallet_source || 'system-generated',
+        is_primary: wallet.is_primary || false,
         created_at: wallet.created_at,
         updated_at: wallet.updated_at,
       };
@@ -170,26 +228,35 @@ export async function createWalletWithUserId(userId: string) {
 
 /**
  * Ensure wallet exists for user - automatically creates if not exists
- * This is called during login to ensure every user has a wallet
+ * This is called during login to ensure every user has at least 1 wallet
+ * Note: Users can now have 0-2 wallets, but we ensure at least 1 exists on login
  */
 export async function ensureWalletExists(userId: string) {
   try {
-    // Check if wallet exists
-    const existingWallet = await findFirstByFilter<any>(Wallet, { user_id: userId });
+    // Check if any active wallet exists
+    const wallets = await findAllByFilter<any>(Wallet, { user_id: userId });
     
-    if (existingWallet) {
-      // Convert HarperDB object to plain object (required for Server Actions)
+    if (wallets.length > 0) {
+      // Find primary wallet, or fallback to first wallet if no primary set
+      let existingWallet = wallets.find((w: any) => w.is_primary === true);
+      if (!existingWallet) {
+        existingWallet = wallets[0];
+      }
       const plainWallet = {
         id: existingWallet.id,
         user_id: existingWallet.user_id,
         solana_address: existingWallet.solana_address,
+        key_exported: existingWallet.key_exported || false,
+        key_management_mode: existingWallet.key_management_mode || 'app-managed',
+        wallet_source: existingWallet.wallet_source || 'system-generated',
+        is_primary: existingWallet.is_primary || false,
         created_at: existingWallet.created_at,
         updated_at: existingWallet.updated_at,
       };
       return { success: true, wallet: plainWallet, created: false };
     }
 
-    // Wallet doesn't exist, create it
+    // No wallet exists, create one (user must have at least 1 wallet)
     const createResult = await createWalletByUserId(userId);
     
     if (!createResult.success) {
@@ -209,23 +276,35 @@ export async function ensureWalletExists(userId: string) {
 
 /**
  * Internal function to get balance by userId
- * Used by other server-side functions
+ * Queries balance directly from Solana blockchain
  */
 async function getBalanceByUserId(userId: string) {
   try {
-    const balance = await findFirstByFilter<any>(Balance, { user_id: userId });
-
-    if (!balance) {
-      return { success: false, error: "Balance not found" };
+    // Get primary wallet for user
+    const walletResult = await getWalletByUserId(userId);
+    if (!walletResult.success || !walletResult.wallet) {
+      return { success: false, error: "Wallet not found. Please create a wallet first." };
     }
 
-    // Convert HarperDB object to plain object (required for Server Actions)
+    const solanaAddress = walletResult.wallet.solana_address;
+    if (!solanaAddress) {
+      return { success: false, error: "Wallet address not found" };
+    }
+
+    // Query balance from Solana blockchain
+    const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com";
+    const connection = new Connection(SOLANA_RPC_URL, "confirmed");
+    const publicKey = new PublicKey(solanaAddress);
+    const balanceLamports = await connection.getBalance(publicKey);
+    const balanceSOL = balanceLamports / LAMPORTS_PER_SOL;
+
+    // Return balance in same format as before for compatibility
     const plainBalance = {
-      id: balance.id,
-      user_id: balance.user_id,
-      balance: balance.balance,
-      currency: balance.currency,
-      updated_at: balance.updated_at,
+      id: `balance_${userId}`, // Virtual ID for compatibility
+      user_id: userId,
+      balance: balanceSOL,
+      currency: "SOL",
+      updated_at: new Date().toISOString(),
     };
 
     return { success: true, balance: plainBalance };
@@ -256,35 +335,17 @@ export async function getBalanceWithUserId(userId: string) {
 }
 
 
-export async function updateBalance(
+/**
+ * Record a transaction (balance is managed on blockchain, we only record transactions)
+ */
+async function recordTransaction(
   userId: string,
-  amount: number,
   type: string,
+  amount: number,
   solanaSignature?: string,
   metadata?: Record<string, any>
 ) {
   try {
-    const balance = await findFirstByFilter<any>(Balance, { user_id: userId });
-
-    if (!balance) {
-      return { success: false, error: "Balance not found" };
-    }
-
-    const newBalance = balance.balance + amount;
-
-    // Prevent negative balance
-    if (newBalance < 0) {
-      return { success: false, error: "Insufficient balance" };
-    }
-
-    // Update balance
-    await (Balance as any).update({
-      id: balance.id,
-      balance: newBalance,
-      updated_at: new Date().toISOString(),
-    });
-
-    // Record transaction
     const transactionId = `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     await (Transaction as any).create({
       id: transactionId,
@@ -298,14 +359,14 @@ export async function updateBalance(
       created_at: new Date().toISOString(),
     });
 
-    return { success: true, balance: newBalance };
+    return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
 }
 
 /**
- * Credit balance from a deposit
+ * Record a deposit transaction
  */
 export async function creditDeposit(
   userId: string,
@@ -313,11 +374,11 @@ export async function creditDeposit(
   signature: string,
   address: string
 ) {
-  return updateBalance(userId, amount, "deposit", signature, { address });
+  return recordTransaction(userId, "deposit", amount, signature, { address });
 }
 
 /**
- * Debit balance for a withdrawal
+ * Record a withdrawal transaction
  */
 export async function debitWithdrawal(
   userId: string,
@@ -325,7 +386,7 @@ export async function debitWithdrawal(
   signature: string,
   toAddress: string
 ) {
-  return updateBalance(userId, -amount, "withdrawal", signature, { toAddress });
+  return recordTransaction(userId, "withdrawal", amount, signature, { toAddress });
 }
 
 /**
@@ -400,7 +461,7 @@ export async function checkDeposits() {
   try {
     const user = await requireAuth();
     
-    // Get user's wallet
+    // Get user's primary wallet
     const walletResult = await getWalletByUserId(user.userId);
     if (!walletResult.success || !walletResult.wallet?.solana_address) {
       return { success: false, error: "Wallet not found" };
@@ -496,15 +557,15 @@ export async function withdraw(toAddress: string, amount: number) {
       return { success: false, error: `Minimum withdrawal amount is ${MIN_WITHDRAWAL} SOL` };
     }
 
-    // Check user balance
+    // Check user balance from blockchain
     const balanceResult = await getBalanceByUserId(user.userId);
     if (!balanceResult.success || !balanceResult.balance) {
-      return { success: false, error: "Balance not found. Please create a wallet first." };
+      return { success: false, error: balanceResult.error || "Failed to get balance. Please create a wallet first." };
     }
 
     const currentBalance = balanceResult.balance?.balance || 0;
     if (currentBalance < amount) {
-      return { success: false, error: "Insufficient balance" };
+      return { success: false, error: `Insufficient balance. Available: ${currentBalance} SOL, Required: ${amount} SOL` };
     }
 
     // Send SOL from hot wallet
@@ -519,6 +580,7 @@ export async function withdraw(toAddress: string, amount: number) {
       return { success: false, error: "Transaction signature not found" };
     }
 
+    // Record withdrawal transaction
     const debitResult = await debitWithdrawal(
       user.userId,
       amount,
@@ -527,15 +589,19 @@ export async function withdraw(toAddress: string, amount: number) {
     );
 
     if (!debitResult.success) {
-      // If debit fails, we should ideally reverse the SOL send
-      // For now, just return error (in production, implement proper rollback)
-      return { success: false, error: "Withdrawal sent but failed to update balance. Please contact support." };
+      // Transaction was sent but failed to record - log for manual review
+      console.error(`Withdrawal sent but failed to record transaction: ${sendResult.signature}`);
+      // Still return success since SOL was sent
     }
+
+    // Get updated balance from blockchain
+    const updatedBalanceResult = await getBalanceByUserId(user.userId);
+    const newBalance = updatedBalanceResult.success ? updatedBalanceResult.balance?.balance || 0 : currentBalance - amount;
 
     return {
       success: true,
       signature: sendResult.signature,
-      newBalance: debitResult.balance,
+      newBalance,
       message: "Withdrawal successful",
     };
   } catch (error: any) {
@@ -544,69 +610,110 @@ export async function withdraw(toAddress: string, amount: number) {
 }
 
 /**
- * Export private key for current authenticated user
+ * Export private key for a specific wallet
  * Decrypts and returns the private key (user should download and store securely)
  * Uses HttpOnly cookie for authentication
  */
-export async function exportPrivateKey() {
+export async function exportPrivateKey(walletId: string) {
   try {
     const user = await requireAuth();
-    const walletResult = await getWalletByUserId(user.userId);
     
-    if (!walletResult.success || !walletResult.wallet) {
+    // Get specific wallet
+    const wallet = await findFirstByFilter<any>(Wallet, { id: walletId, user_id: user.userId });
+    if (!wallet) {
       return { success: false, error: "Wallet not found" };
     }
 
-    const wallet = await findFirstByFilter<any>(Wallet, { user_id: user.userId });
-    if (!wallet || !wallet.encrypted_private_key) {
-      return { success: false, error: "Private key not found" };
+    // Check if encrypted_private_key exists
+    if (!wallet.encrypted_private_key) {
+      return { 
+        success: false, 
+        error: "Private key not found. This wallet may have been created before encryption was implemented, or the key was already exported and removed." 
+      };
     }
 
-    // Decrypt private key
-    const privateKey = decrypt(wallet.encrypted_private_key);
+    // Validate encrypted_private_key format (should be base64 string)
+    if (typeof wallet.encrypted_private_key !== 'string' || wallet.encrypted_private_key.trim() === '') {
+      return { 
+        success: false, 
+        error: "Invalid private key format. The encrypted key appears to be corrupted." 
+      };
+    }
 
-    return { 
-      success: true, 
-      privateKey,
-      address: wallet.solana_address,
-      warning: "Keep this private key secure. Anyone with access to it can control your wallet."
-    };
+    // Check if wallet is already self-managed (key should have been removed)
+    if (wallet.key_management_mode === 'self-managed') {
+      return { 
+        success: false, 
+        error: "This wallet is self-managed. The private key is no longer stored by the app. Please use your exported private key." 
+      };
+    }
+
+    try {
+      // Decrypt private key
+      const privateKey = decrypt(wallet.encrypted_private_key);
+      
+      // Validate decrypted key is not empty
+      if (!privateKey || privateKey.trim() === '') {
+        return { 
+          success: false, 
+          error: "Decryption succeeded but returned empty key. This may indicate a corrupted encrypted key." 
+        };
+      }
+
+      return { 
+        success: true, 
+        privateKey,
+        address: wallet.solana_address,
+        warning: "Keep this private key secure. Anyone with access to it can control your wallet."
+      };
+    } catch (decryptError: any) {
+      // More detailed error message
+      const errorMessage = decryptError.message || 'Unknown decryption error';
+      
+      // Check if it's an authentication error (wrong key)
+      if (errorMessage.includes('unable to authenticate') || errorMessage.includes('Unsupported state')) {
+        return { 
+          success: false, 
+          error: `Decryption failed: The encryption key may have changed, or the encrypted data is corrupted. Original error: ${errorMessage}` 
+        };
+      }
+      
+      return { 
+        success: false, 
+        error: `Failed to decrypt private key: ${errorMessage}` 
+      };
+    }
   } catch (error: any) {
     return { success: false, error: error.message || 'Failed to export private key' };
   }
 }
 
 /**
- * Mark private key as exported and optionally change management mode
+ * Mark private key as exported and change to self-managed
+ * When exported, wallet_source becomes 'external-like' (treated like external wallet)
  * Uses HttpOnly cookie for authentication
  */
-export async function markKeyAsExported(managementMode: 'app-managed' | 'self-managed' = 'self-managed') {
+export async function markKeyAsExported(walletId: string) {
   try {
     const user = await requireAuth();
-    const walletResult = await getWalletByUserId(user.userId);
+    const wallet = await findFirstByFilter<any>(Wallet, { id: walletId, user_id: user.userId });
     
-    if (!walletResult.success || !walletResult.wallet) {
-      return { success: false, error: "Wallet not found" };
-    }
-
-    const wallet = await findFirstByFilter<any>(Wallet, { user_id: user.userId });
     if (!wallet) {
       return { success: false, error: "Wallet not found" };
     }
 
-    // Update wallet
+    // Update wallet - mark as self-managed and external-like
     await (Wallet as any).update({
       id: wallet.id,
       key_exported: true,
-      key_management_mode: managementMode,
+      key_management_mode: 'self-managed',
+      wallet_source: 'external-like', // Treat as external wallet after export
       updated_at: new Date().toISOString(),
     });
 
     return { 
       success: true,
-      message: managementMode === 'self-managed' 
-        ? "Wallet is now self-managed. App will no longer store your private key."
-        : "Private key export recorded. App will continue managing your wallet."
+      message: "Wallet is now self-managed. App will no longer store your private key."
     };
   } catch (error: any) {
     return { success: false, error: error.message || 'Failed to update wallet' };
@@ -614,35 +721,172 @@ export async function markKeyAsExported(managementMode: 'app-managed' | 'self-ma
 }
 
 /**
- * Update key management mode
+ * Get all wallets for current authenticated user
  * Uses HttpOnly cookie for authentication
  */
-export async function updateKeyManagementMode(mode: 'app-managed' | 'self-managed') {
+export async function getAllWallets() {
   try {
     const user = await requireAuth();
-    const walletResult = await getWalletByUserId(user.userId);
+    return await getAllWalletsByUserId(user.userId);
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Authentication required' };
+  }
+}
+
+/**
+ * Add external wallet (wallet address only, no private key)
+ * Uses HttpOnly cookie for authentication
+ */
+export async function addExternalWallet(address: string) {
+  try {
+    const user = await requireAuth();
     
-    if (!walletResult.success || !walletResult.wallet) {
-      return { success: false, error: "Wallet not found" };
+    // Validate address
+    if (!address || address.trim() === '') {
+      return { success: false, error: "Address is required" };
     }
 
-    const wallet = await findFirstByFilter<any>(Wallet, { user_id: user.userId });
-    if (!wallet) {
-      return { success: false, error: "Wallet not found" };
+    // Validate Solana address format (basic check)
+    if (address.length < 32 || address.length > 44) {
+      return { success: false, error: "Invalid Solana address format" };
     }
 
-    // Update wallet
-    await (Wallet as any).update({
-      id: wallet.id,
-      key_management_mode: mode,
+    // Check wallet count (max 2 wallets)
+    const walletCount = await getWalletCountByUserId(user.userId);
+    if (walletCount >= 2) {
+      return { success: false, error: "Maximum 2 wallets allowed. Please delete an existing wallet first." };
+    }
+
+    // Check if address already exists
+    const existingWallet = await findFirstByFilter<any>(Wallet, { 
+      user_id: user.userId, 
+      solana_address: address
+    });
+    if (existingWallet) {
+      return { success: false, error: "This address is already linked to your account" };
+    }
+
+    // Check if this will be the first wallet (set as primary)
+    const isFirstWallet = walletCount === 0;
+
+    // Create external wallet (no private key)
+    const walletId = `wallet_${user.userId}_${Date.now()}`;
+    await (Wallet as any).create({
+      id: walletId,
+      user_id: user.userId,
+      solana_address: address,
+      encrypted_private_key: '', // No private key for external wallets
+      key_exported: true, // External wallets are always considered "exported"
+      key_management_mode: 'self-managed',
+      wallet_source: 'external',
+      is_primary: isFirstWallet, // Set as primary if first wallet
+      created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
 
     return { 
       success: true,
-      message: `Wallet management mode updated to ${mode === 'app-managed' ? 'App-managed' : 'Self-managed'}`
+      message: "External wallet added successfully"
     };
   } catch (error: any) {
-    return { success: false, error: error.message || 'Failed to update management mode' };
+    return { success: false, error: error.message || 'Failed to add external wallet' };
+  }
+}
+
+/**
+ * Set wallet as primary (only one primary wallet at a time)
+ * Uses HttpOnly cookie for authentication
+ */
+export async function setPrimaryWallet(walletId: string) {
+  try {
+    const user = await requireAuth();
+    
+    // Get wallet
+    const wallet = await findFirstByFilter<any>(Wallet, { id: walletId, user_id: user.userId });
+    if (!wallet) {
+      return { success: false, error: "Wallet not found" };
+    }
+
+    // Get all wallets
+    const allWallets = await findAllByFilter<any>(Wallet, { user_id: user.userId });
+    
+    // Unset primary for all wallets
+    for (const w of allWallets) {
+      if (w.is_primary) {
+        await (Wallet as any).update({
+          id: w.id,
+          is_primary: false,
+          updated_at: new Date().toISOString(),
+        });
+      }
+    }
+
+    // Set selected wallet as primary
+    await (Wallet as any).update({
+      id: wallet.id,
+      is_primary: true,
+      updated_at: new Date().toISOString(),
+    });
+
+    return { 
+      success: true,
+      message: "Primary wallet updated successfully"
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Failed to set primary wallet' };
+  }
+}
+
+/**
+ * Delete wallet (only allowed for self-managed wallets, and must have at least 1 wallet remaining)
+ * If deleting primary wallet, automatically sets remaining wallet as primary
+ * Uses HttpOnly cookie for authentication
+ */
+export async function deleteWallet(walletId: string) {
+  try {
+    const user = await requireAuth();
+    
+    // Get wallet
+    const wallet = await findFirstByFilter<any>(Wallet, { id: walletId, user_id: user.userId });
+    if (!wallet) {
+      return { success: false, error: "Wallet not found" };
+    }
+
+    // Check if wallet is self-managed (required for deletion)
+    if (wallet.key_management_mode !== 'self-managed') {
+      return { success: false, error: "Only self-managed wallets can be deleted" };
+    }
+
+    // Check wallet count (must have at least 1 wallet)
+    const walletCount = await getWalletCountByUserId(user.userId);
+    if (walletCount <= 1) {
+      return { success: false, error: "Cannot delete wallet. You must have at least 1 wallet." };
+    }
+
+    const wasPrimary = wallet.is_primary === true;
+
+    // Hard delete (permanently remove from database)
+    await (Wallet as any).delete(wallet.id);
+
+    // If deleted wallet was primary, set remaining wallet as primary
+    if (wasPrimary) {
+      const remainingWallets = await findAllByFilter<any>(Wallet, { user_id: user.userId });
+      if (remainingWallets.length > 0) {
+        await (Wallet as any).update({
+          id: remainingWallets[0].id,
+          is_primary: true,
+          updated_at: new Date().toISOString(),
+        });
+      }
+    }
+
+    return { 
+      success: true,
+      message: wasPrimary 
+        ? "Primary wallet deleted. Remaining wallet set as primary."
+        : "Wallet deleted successfully"
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Failed to delete wallet' };
   }
 }

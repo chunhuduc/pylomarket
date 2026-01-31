@@ -84,6 +84,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Record withdrawal transaction
     const debitResult = await debitWithdrawal(
       userId,
       amount,
@@ -92,18 +93,21 @@ export async function POST(request: NextRequest) {
     );
 
     if (!debitResult.success) {
-      // If debit fails, we should ideally reverse the SOL send
-      // For now, just return error (in production, implement proper rollback)
-      return NextResponse.json(
-        { error: "Withdrawal sent but failed to update balance. Please contact support." },
-        { status: 500 }
-      );
+      // Transaction was sent but failed to record - log for manual review
+      console.error(`Withdrawal sent but failed to record transaction: ${sendResult.signature}`);
+      // Still return success since SOL was sent
     }
+
+    // Get updated balance from blockchain
+    const updatedBalanceResult = await getBalanceWithUserId(userId);
+    const newBalance = updatedBalanceResult.success 
+      ? updatedBalanceResult.balance?.balance || 0 
+      : currentBalance - amount;
 
     return NextResponse.json({
       success: true,
       signature: sendResult.signature,
-      newBalance: debitResult.balance,
+      newBalance,
       message: "Withdrawal successful",
     });
   } catch (error) {

@@ -20,14 +20,16 @@ export {
   withdraw,
   exportPrivateKey,
   markKeyAsExported,
-  updateKeyManagementMode,
+  getAllWallets,
+  addExternalWallet,
+  deleteWallet,
+  setPrimaryWallet,
   // Functions with userId parameter (for API routes)
   getWalletWithUserId,
   getBalanceWithUserId,
   createWalletWithUserId,
   getTransactionsWithUserId,
   // Internal functions
-  updateBalance, 
   ensureWalletExists 
 } from './wallet';
 

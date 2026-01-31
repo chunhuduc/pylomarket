@@ -16,7 +16,7 @@ import { setAuthToken, clearAuthToken, getCurrentUser as getCurrentUserFromCooki
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
 
 // Extract tables from databases
-const { User, Wallet, Balance } = databases.pylomarket;
+const { User, Wallet } = databases.pylomarket;
 
 async function findFirstByFilter<T>(table: any, filter: Record<string, any>): Promise<T | null> {
   const query = {
