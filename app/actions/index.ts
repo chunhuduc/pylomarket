@@ -18,6 +18,9 @@ export {
   getTransactions,
   checkDeposits,
   withdraw,
+  exportPrivateKey,
+  markKeyAsExported,
+  updateKeyManagementMode,
   // Functions with userId parameter (for API routes)
   getWalletWithUserId,
   getBalanceWithUserId,

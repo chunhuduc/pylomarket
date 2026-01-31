@@ -7,7 +7,7 @@
 
 import { databases } from "harperdb";
 import { generateSolanaWallet } from './solana';
-import { encrypt } from '../lib/encryption';
+import { encrypt, decrypt } from '../lib/encryption';
 import { checkNewDeposits } from './solana';
 import { sendSOL } from './solana';
 import { requireAuth } from '../lib/auth';
@@ -51,6 +51,8 @@ async function getWalletByUserId(userId: string) {
       id: wallet.id,
       user_id: wallet.user_id,
       solana_address: wallet.solana_address,
+      key_exported: wallet.key_exported || false,
+      key_management_mode: wallet.key_management_mode || 'app-managed',
       created_at: wallet.created_at,
       updated_at: wallet.updated_at,
     };
@@ -107,6 +109,8 @@ async function createWalletByUserId(userId: string) {
       user_id: userId,
       solana_address: solanaAddress,
       encrypted_private_key: encryptedPrivateKey,
+      key_exported: false,
+      key_management_mode: 'app-managed',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
@@ -129,6 +133,8 @@ async function createWalletByUserId(userId: string) {
         id: wallet.id,
         user_id: wallet.user_id,
         solana_address: wallet.solana_address,
+        key_exported: wallet.key_exported || false,
+        key_management_mode: wallet.key_management_mode || 'app-managed',
         created_at: wallet.created_at,
         updated_at: wallet.updated_at,
       };
@@ -534,5 +540,109 @@ export async function withdraw(toAddress: string, amount: number) {
     };
   } catch (error: any) {
     return { success: false, error: error.message || 'Authentication required' };
+  }
+}
+
+/**
+ * Export private key for current authenticated user
+ * Decrypts and returns the private key (user should download and store securely)
+ * Uses HttpOnly cookie for authentication
+ */
+export async function exportPrivateKey() {
+  try {
+    const user = await requireAuth();
+    const walletResult = await getWalletByUserId(user.userId);
+    
+    if (!walletResult.success || !walletResult.wallet) {
+      return { success: false, error: "Wallet not found" };
+    }
+
+    const wallet = await findFirstByFilter<any>(Wallet, { user_id: user.userId });
+    if (!wallet || !wallet.encrypted_private_key) {
+      return { success: false, error: "Private key not found" };
+    }
+
+    // Decrypt private key
+    const privateKey = decrypt(wallet.encrypted_private_key);
+
+    return { 
+      success: true, 
+      privateKey,
+      address: wallet.solana_address,
+      warning: "Keep this private key secure. Anyone with access to it can control your wallet."
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Failed to export private key' };
+  }
+}
+
+/**
+ * Mark private key as exported and optionally change management mode
+ * Uses HttpOnly cookie for authentication
+ */
+export async function markKeyAsExported(managementMode: 'app-managed' | 'self-managed' = 'self-managed') {
+  try {
+    const user = await requireAuth();
+    const walletResult = await getWalletByUserId(user.userId);
+    
+    if (!walletResult.success || !walletResult.wallet) {
+      return { success: false, error: "Wallet not found" };
+    }
+
+    const wallet = await findFirstByFilter<any>(Wallet, { user_id: user.userId });
+    if (!wallet) {
+      return { success: false, error: "Wallet not found" };
+    }
+
+    // Update wallet
+    await (Wallet as any).update({
+      id: wallet.id,
+      key_exported: true,
+      key_management_mode: managementMode,
+      updated_at: new Date().toISOString(),
+    });
+
+    return { 
+      success: true,
+      message: managementMode === 'self-managed' 
+        ? "Wallet is now self-managed. App will no longer store your private key."
+        : "Private key export recorded. App will continue managing your wallet."
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Failed to update wallet' };
+  }
+}
+
+/**
+ * Update key management mode
+ * Uses HttpOnly cookie for authentication
+ */
+export async function updateKeyManagementMode(mode: 'app-managed' | 'self-managed') {
+  try {
+    const user = await requireAuth();
+    const walletResult = await getWalletByUserId(user.userId);
+    
+    if (!walletResult.success || !walletResult.wallet) {
+      return { success: false, error: "Wallet not found" };
+    }
+
+    const wallet = await findFirstByFilter<any>(Wallet, { user_id: user.userId });
+    if (!wallet) {
+      return { success: false, error: "Wallet not found" };
+    }
+
+    // Update wallet
+    await (Wallet as any).update({
+      id: wallet.id,
+      key_management_mode: mode,
+      updated_at: new Date().toISOString(),
+    });
+
+    return { 
+      success: true,
+      message: `Wallet management mode updated to ${mode === 'app-managed' ? 'App-managed' : 'Self-managed'}`
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Failed to update management mode' };
   }
 }

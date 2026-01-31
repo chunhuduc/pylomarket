@@ -15,6 +15,8 @@ type Wallet @table(database: "pylomarket") {
   user_id: String @indexed
   solana_address: String
   encrypted_private_key: String
+  key_exported: Boolean
+  key_management_mode: String
   created_at: String
   updated_at: String
 }

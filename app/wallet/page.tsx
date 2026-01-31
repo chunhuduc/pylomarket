@@ -9,7 +9,10 @@ import {
   getTransactions,
   checkDeposits,
   withdraw,
-  getCurrentUserInfo
+  getCurrentUserInfo,
+  exportPrivateKey,
+  markKeyAsExported,
+  updateKeyManagementMode
 } from "@/actions";
 
 interface Balance {
@@ -24,6 +27,8 @@ interface Wallet {
   id: string;
   user_id: string;
   solana_address: string;
+  key_exported?: boolean;
+  key_management_mode?: 'app-managed' | 'self-managed';
   created_at: string;
 }
 
@@ -52,6 +57,9 @@ export default function WalletPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [creatingWallet, setCreatingWallet] = useState(false);
+  const [exportingKey, setExportingKey] = useState(false);
+  const [exportedPrivateKey, setExportedPrivateKey] = useState<string | null>(null);
+  const [showKeyWarning, setShowKeyWarning] = useState(false);
 
   useEffect(() => {
     checkAuthAndFetch();
@@ -232,6 +240,88 @@ export default function WalletPage() {
     }
   }
 
+  async function handleExportPrivateKey() {
+    setShowKeyWarning(true);
+  }
+
+  async function confirmExportKey(managementMode: 'app-managed' | 'self-managed') {
+    setExportingKey(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      // Export private key
+      const exportResult = await exportPrivateKey();
+      
+      if (exportResult.success && exportResult.privateKey) {
+        setExportedPrivateKey(exportResult.privateKey);
+        
+        // Mark as exported
+        await markKeyAsExported(managementMode);
+        
+        // Refresh wallet data
+        await fetchWallet();
+        
+        setShowKeyWarning(false);
+      } else {
+        setError(exportResult.error || "Failed to export private key");
+        setShowKeyWarning(false);
+      }
+    } catch (error) {
+      console.error("Error exporting key:", error);
+      setError("Failed to export private key");
+      setShowKeyWarning(false);
+    } finally {
+      setExportingKey(false);
+    }
+  }
+
+  function downloadPrivateKey() {
+    if (!exportedPrivateKey || !wallet) return;
+
+    const blob = new Blob([exportedPrivateKey], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `solana-private-key-${wallet.solana_address.slice(0, 8)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    setSuccess("Private key downloaded!");
+    setTimeout(() => {
+      setExportedPrivateKey(null);
+      setSuccess("");
+    }, 2000);
+  }
+
+  function copyPrivateKey() {
+    if (exportedPrivateKey) {
+      navigator.clipboard.writeText(exportedPrivateKey);
+      setSuccess("Private key copied to clipboard!");
+      setTimeout(() => setSuccess(""), 2000);
+    }
+  }
+
+  async function handleChangeManagementMode(mode: 'app-managed' | 'self-managed') {
+    setError("");
+    setSuccess("");
+
+    try {
+      const result = await updateKeyManagementMode(mode);
+      if (result.success) {
+        setSuccess(result.message || "Management mode updated");
+        await fetchWallet();
+      } else {
+        setError(result.error || "Failed to update management mode");
+      }
+    } catch (error) {
+      console.error("Error updating management mode:", error);
+      setError("Failed to update management mode");
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
@@ -258,6 +348,70 @@ export default function WalletPage() {
         )}
 
         <div className="space-y-6">
+          {/* Wallet Management Section */}
+          {wallet && (
+            <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
+              <h2 className="text-lg font-semibold text-white mb-4">Wallet Management</h2>
+              
+              <div className="space-y-4">
+                {/* Current Mode Display */}
+                <div className="flex items-center justify-between p-4 bg-[#2a2a2a] rounded-lg">
+                  <div>
+                    <p className="text-sm text-gray-400 mb-1">Management Mode</p>
+                    <p className="text-white font-medium">
+                      {(wallet.key_management_mode || 'app-managed') === 'self-managed' ? 'Self-Managed' : 'App-Managed'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {(wallet.key_management_mode || 'app-managed') === 'self-managed' 
+                        ? 'You control your private key. App cannot access your funds.'
+                        : 'App manages your private key securely. You can export it anytime.'}
+                    </p>
+                  </div>
+                  {(wallet.key_management_mode || 'app-managed') === 'app-managed' && (
+                    <button
+                      onClick={() => handleChangeManagementMode('self-managed')}
+                      className="px-4 py-2 bg-yellow-600 text-white text-sm rounded-lg hover:bg-yellow-700 transition-colors"
+                    >
+                      Switch to Self-Managed
+                    </button>
+                  )}
+                  {(wallet.key_management_mode || 'app-managed') === 'self-managed' && (
+                    <button
+                      onClick={() => handleChangeManagementMode('app-managed')}
+                      className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Switch to App-Managed
+                    </button>
+                  )}
+                </div>
+
+                {/* Export Private Key Section */}
+                <div className="border-t border-[#2a2a2a] pt-4">
+                  <p className="text-sm text-gray-400 mb-3">Private Key</p>
+                  {wallet.key_exported ? (
+                    <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-4">
+                      <p className="text-sm text-yellow-400">
+                        ⚠️ Your private key has been exported. Keep it secure and never share it with anyone.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-xs text-gray-500">
+                        Export your private key to manage your wallet independently. Once exported, you can choose to have the app stop storing it.
+                      </p>
+                      <button
+                        onClick={handleExportPrivateKey}
+                        className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors"
+                      >
+                        Export Private Key
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Wallet Setup Section - Show if no wallet */}
           {!wallet && (
             <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
@@ -433,6 +587,96 @@ export default function WalletPage() {
             </div>
           )}
         </div>
+
+        {/* Export Key Warning Modal */}
+        {showKeyWarning && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6 max-w-md w-full">
+              <h3 className="text-xl font-bold text-white mb-4">⚠️ Export Private Key</h3>
+              <div className="space-y-4 mb-6">
+                <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-4">
+                  <p className="text-sm text-red-400 font-medium mb-2">Security Warning</p>
+                  <ul className="text-xs text-red-300 space-y-1 list-disc list-inside">
+                    <li>Anyone with your private key can control your wallet</li>
+                    <li>Never share your private key with anyone</li>
+                    <li>Store it securely offline (hardware wallet, paper wallet, etc.)</li>
+                    <li>If you lose it, you lose access to your funds</li>
+                  </ul>
+                </div>
+                <p className="text-sm text-gray-400">
+                  After exporting, would you like the app to continue managing your wallet, or switch to self-managed mode?
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowKeyWarning(false)}
+                  className="flex-1 px-4 py-2 bg-[#2a2a2a] text-white rounded-lg hover:bg-[#3a3a3a] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => confirmExportKey('app-managed')}
+                  disabled={exportingKey}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {exportingKey ? "Exporting..." : "Export & Keep App-Managed"}
+                </button>
+                <button
+                  onClick={() => confirmExportKey('self-managed')}
+                  disabled={exportingKey}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {exportingKey ? "Exporting..." : "Export & Self-Manage"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Exported Key Display Modal */}
+        {exportedPrivateKey && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6 max-w-lg w-full">
+              <h3 className="text-xl font-bold text-white mb-4">✅ Private Key Exported</h3>
+              <div className="space-y-4 mb-6">
+                <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-4">
+                  <p className="text-sm text-yellow-400 font-medium mb-2">⚠️ Keep This Secure!</p>
+                  <p className="text-xs text-yellow-300">
+                    Save this private key immediately. It will not be shown again. Store it in a secure location.
+                  </p>
+                </div>
+                <div className="bg-[#2a2a2a] p-4 rounded-lg">
+                  <p className="text-xs text-gray-400 mb-2">Your Private Key:</p>
+                  <p className="text-white font-mono text-sm break-all select-all">
+                    {exportedPrivateKey}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={copyPrivateKey}
+                  className="flex-1 px-4 py-2 bg-[#2a2a2a] text-white rounded-lg hover:bg-[#3a3a3a] transition-colors"
+                >
+                  Copy
+                </button>
+                <button
+                  onClick={downloadPrivateKey}
+                  className="flex-1 px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                >
+                  Download as File
+                </button>
+                <button
+                  onClick={() => {
+                    setExportedPrivateKey(null);
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
