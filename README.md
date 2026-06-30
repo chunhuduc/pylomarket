@@ -2,6 +2,32 @@
 
 Decentralized prediction market platform built with HarperDB and Next.js, featuring a Polymarket-inspired UI.
 
+<!-- chunhuduc.com:showcase:start -->
+```yaml
+summary: "Self-owned Next.js + HarperDB prediction market with Server Actions, GraphQL-defined data model, order-book style trading, JWT/HttpOnly cookie auth, and Solana deposit/withdraw automation. Docker + GitHub Actions deploy to DigitalOcean."
+tags: [Next.js, HarperDB, TypeScript, Solana, Docker, GitHub Actions]
+outcome: "Polymarket-style order-book trading with end-to-end Solana wallet automation."
+complexityScore: 7
+motif: { from: "#7c3aed", to: "#06b6d4", icon: web }
+architecture:
+  from: "#7c3aed"
+  to: "#06b6d4"
+  nodes:
+    - { id: client, label: "Client / Server Components", x: 18, y: 14 }
+    - { id: actions, label: "Server Actions", x: 50, y: 14, kind: primary }
+    - { id: harperdb, label: "HarperDB", x: 50, y: 50, kind: store }
+    - { id: auth, label: "JWT / HttpOnly", x: 18, y: 50 }
+    - { id: solana, label: "Solana RPC", x: 82, y: 32 }
+    - { id: deploy, label: "Docker + GH Actions", x: 82, y: 60 }
+  edges:
+    - { from: client, to: actions, flow: true }
+    - { from: actions, to: harperdb, flow: true }
+    - { from: auth, to: actions, curve: 4 }
+    - { from: actions, to: solana, flow: true }
+    - { from: harperdb, to: deploy, curve: -4 }
+```
+<!-- chunhuduc.com:showcase:end -->
+
 ## 🚀 Quick Start
 
 ```bash
